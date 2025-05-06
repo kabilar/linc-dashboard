@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/linc-dashboard/static/css/main.f855e6bc.css",
+    "main.js": "/linc-dashboard/static/js/main.e4fbb9f0.js",
+    "index.html": "/linc-dashboard/index.html",
+    "main.f855e6bc.css.map": "/linc-dashboard/static/css/main.f855e6bc.css.map",
+    "main.e4fbb9f0.js.map": "/linc-dashboard/static/js/main.e4fbb9f0.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f855e6bc.css",
+    "static/js/main.e4fbb9f0.js"
+  ]
+}
