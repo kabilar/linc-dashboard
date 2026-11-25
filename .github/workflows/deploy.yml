@@ -4,11 +4,24 @@ on:
   push:
     branches:
       - main
+  # Pushes made with GITHUB_TOKEN (e.g., the daily CSV commit) do not trigger
+  # `push` workflows, so redeploy whenever the metadata extraction finishes.
+  workflow_run:
+    workflows: ["Extract metadata and commit CSVs"]
+    types:
+      - completed
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build Docusaurus
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
