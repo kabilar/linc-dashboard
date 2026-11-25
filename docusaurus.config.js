@@ -88,9 +88,11 @@ const config = {
         ],
       },
       colorMode: {
-          defaultMode: 'light',
-          disableSwitch: true,
-        },
+        defaultMode: 'light',
+        disableSwitch: false,
+        // Follow the visitor's system setting until they choose a mode
+        respectPrefersColorScheme: true,
+      },
       prism: {
         theme: prismThemes.github,
       },

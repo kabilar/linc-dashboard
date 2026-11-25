@@ -96,8 +96,8 @@
   margin-top: 0.25rem;
   padding: 0.05rem 0.45rem;
   border-radius: 4px;
-  background-color: #fdf3d7;
-  color: #6b4e00;
+  background-color: var(--dashboard-badge-background);
+  color: var(--dashboard-badge-text);
   font-size: 0.75rem;
 }
 

@@ -41,7 +41,7 @@
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 6px;
   background-color: var(--ifm-background-surface-color);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 12px var(--dashboard-shadow);
   font-size: 0.8125rem;
   font-weight: normal;
   line-height: 1.45;

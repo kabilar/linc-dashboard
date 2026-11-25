@@ -53,7 +53,7 @@
   margin-left: auto;
   /* Same position as the arrow of the other dropdowns */
   margin-right: 0.05rem;
-  color: #606770;
+  color: var(--dashboard-chevron-color);
 }
 
 .chip {
@@ -94,7 +94,7 @@
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 6px;
   background-color: var(--ifm-background-surface-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px var(--dashboard-shadow);
 }
 
 .option {

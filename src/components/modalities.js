@@ -1,21 +1,22 @@
 import { compareLabels } from "./data";
 
 // Modalities in display order, each with a fixed color so that a modality
-// keeps its color whatever the filters. The first six colors are slots 1-6 of
-// a categorical palette validated for color-vision deficiencies when adjacent
+// keeps its color whatever the filters. The colors (CSS variables in
+// src/css/custom.css, with light and dark mode values) are slots 1-6 of a
+// categorical palette validated for color-vision deficiencies when adjacent
 // (e.g. stacked); "Unknown" is a neutral gray.
 export const MODALITIES = [
-  { name: "PS-OCT", color: "#257de0" },
-  { name: "Dark-field microscopy", color: "#f47230" },
-  { name: "HiP-CT", color: "#00b894" },
-  { name: "Diffusion MRI", color: "#f2a600" },
-  { name: "Light-sheet microscopy", color: "#ee7fac" },
-  { name: "Blockface photo", color: "#008a17" },
-  { name: "Unknown", color: "#b9bac2" },
+  { name: "PS-OCT", color: "var(--modality-1)" },
+  { name: "Dark-field microscopy", color: "var(--modality-2)" },
+  { name: "HiP-CT", color: "var(--modality-3)" },
+  { name: "Diffusion MRI", color: "var(--modality-4)" },
+  { name: "Light-sheet microscopy", color: "var(--modality-5)" },
+  { name: "Blockface photo", color: "var(--modality-6)" },
+  { name: "Unknown", color: "var(--modality-unknown)" },
 ];
 
 export const UNKNOWN_MODALITY = "Unknown";
-const FALLBACK_COLOR = "#8d9098";
+const FALLBACK_COLOR = "var(--modality-other)";
 const ORDER = MODALITIES.map(({ name }) => name);
 
 export function modalityColor(name) {

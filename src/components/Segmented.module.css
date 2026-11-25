@@ -42,7 +42,7 @@
 }
 
 .selected {
-  background-color: var(--ifm-color-primary);
+  background-color: var(--dashboard-accent);
   color: #fff;
   font-weight: 600;
 }
