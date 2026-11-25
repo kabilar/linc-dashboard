@@ -1,13 +1,21 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 
+const PRODUCTION_URL = 'https://dashboard.lincbrain.org';
+
+// To build a preview hosted elsewhere, set SITE_URL and BASE_URL, e.g.
+//   SITE_URL=https://kabilar.github.io BASE_URL=/linc-dashboard/ npm run build
+const url = process.env.SITE_URL || PRODUCTION_URL;
+const baseUrl = process.env.BASE_URL || '/';
+const isProduction = url === PRODUCTION_URL;
+
 const config = {
   title: 'LINC Dashboard',
   staticDirectories: ['static'],
   tagline: 'A summary of all LINC-related data. It is intended for the LINC project investigators. Data is indexed daily.',
   favicon: 'img/linc.logo.color+white.notext+square.png',
 
-  url: 'https://dashboard.lincbrain.org',
-  baseUrl: '/',
+  url,
+  baseUrl,
   organizationName: 'lincbrain',
   projectName: 'linc-dashboard',
   trailingSlash: false,
@@ -28,16 +36,26 @@ const config = {
           customCss: './src/css/custom.css',
         },
         docs: false,
-        gtag: {
-          trackingID: 'G-9SBR1QJDN3',
-          anonymizeIP: true,
-        },
+        // Analytics only for the production site, not for previews
+        gtag: isProduction
+          ? {
+              trackingID: 'G-9SBR1QJDN3',
+              anonymizeIP: true,
+            }
+          : undefined,
       },
     ],
   ],
 
   themeConfig:
     ({
+      announcementBar: isProduction
+        ? undefined
+        : {
+            id: 'preview',
+            content: `This is a preview. The live dashboard is at <a href="${PRODUCTION_URL}">dashboard.lincbrain.org</a>.`,
+            isCloseable: false,
+          },
       navbar: {
         logo: {
           alt: 'Logo',
