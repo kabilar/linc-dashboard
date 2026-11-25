@@ -3,6 +3,8 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from fnmatch import fnmatch
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -19,6 +21,15 @@ modalities = {'oct': 'PS-OCT',
               'dwi': 'Diffusion MRI',
               'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
+
+# BIDS validation of file paths: files in these top-level folders are not
+# validated (as by the BIDS validator), and raw data may be in a `rawdata/`
+# folder next to them
+BIDS_UNVALIDATED_FOLDERS = ('derivatives', 'sourcedata', 'code')
+BIDS_RAW_FOLDER = 'rawdata/'
+BIDS_VALID = 'Valid'
+BIDS_INVALID = 'Invalid'
+BIDS_NOT_VALIDATED = 'Not validated'
 
 # Curated modalities and subjects for files whose names do not give them;
 # see curation/README.md
@@ -120,8 +131,8 @@ class ArchiveClient:
             next_url = page['next']
 
 
-class ZarrReader:
-    """Reads small JSON files of Zarr archives from an archive's storage."""
+class StorageReader:
+    """Reads small files (e.g. Zarr metadata) from an archive's storage."""
 
     def __init__(self, client):
         self.client = client
@@ -148,6 +159,121 @@ class ZarrReader:
             return None
         response.raise_for_status()
         return response.json()
+
+    def read_text(self, asset_id, storage_url):
+        """Return the content of a (non-Zarr) asset as text."""
+        if storage_url:
+            response = self.storage.get(storage_url, timeout=60)
+            if response.status_code != 403:
+                response.raise_for_status()
+                return response.text
+        # Private storage: download through the API
+        response = self.client.session.get(f'{self.client.api_url}/assets/{asset_id}/download/', timeout=60)
+        response.raise_for_status()
+        return response.text
+
+
+class BidsValidator:
+    """Checks file paths against the file name rules of the BIDS schema."""
+
+    def __init__(self):
+        import bidsschematools.rules
+        import bidsschematools.schema  # noqa: F401 (used by regexify_all)
+        regexes, schema = bidsschematools.rules.regexify_all()
+        self.bids_version = schema.bids_version
+        self.patterns = [re.compile(entry['regex']) for entry in regexes]
+        # Allowed extensions of each suffix of each datatype, e.g. micr -> OCT -> .ome.zarr/
+        self.extensions = {}
+        self._collect_extensions(schema.rules.files.raw)
+
+    def _collect_extensions(self, group):
+        for rule in group.values():
+            if 'suffixes' in rule:
+                for datatype in rule.get('datatypes', []):
+                    for suffix in rule['suffixes']:
+                        self.extensions.setdefault(datatype, {}).setdefault(suffix, set()).update(
+                            rule.get('extensions', []))
+            elif hasattr(rule, 'values'):
+                self._collect_extensions(rule)
+
+    def status(self, path, is_directory=False, root='', ignore=()):
+        """Validate a path relative to the dataset, whose BIDS data is in `root`."""
+        parts = path.split('/')
+        if (parts[0] in BIDS_UNVALIDATED_FOLDERS or any(part.startswith('.') for part in parts)
+                or is_bidsignored(path, ignore)):
+            return BIDS_NOT_VALIDATED
+        if root and path.startswith(root):
+            path = path[len(root):]
+        # OME-Zarr archives are directories: BIDS paths end with "/"
+        target = f'{path}/' if is_directory else path
+        return BIDS_VALID if any(pattern.match(target) for pattern in self.patterns) else BIDS_INVALID
+
+    def issue(self, path, is_directory=False, root=''):
+        """A short explanation of why a path (with an invalid status) is not valid BIDS."""
+        if root and path.startswith(root):
+            path = path[len(root):]
+        parts = path.split('/')
+        if len(parts) == 1:
+            return 'Not a BIDS file at the top level'
+        if not re.fullmatch(r'sub-[0-9a-zA-Z+]+', parts[0]):
+            return f'Not in a sub-<label> folder ({parts[0]}/)'
+        first = 2 if len(parts) > 2 and re.fullmatch(r'ses-[0-9a-zA-Z+]+', parts[1]) else 1
+        if len(parts) - first < 2:
+            return 'Not in a datatype folder (e.g. micr/ or dwi/)'
+        datatype = parts[first]
+        if datatype not in self.extensions:
+            return f'"{datatype}" is not a BIDS datatype folder'
+        if len(parts) - first > 2:
+            return f'In a subfolder of {datatype}/'
+        name = parts[-1]
+        if not name.startswith(f'{parts[0]}_'):
+            return f'File name does not start with {parts[0]}_'
+        stem, dot, extension = name.partition('.')
+        suffix = stem.rsplit('_', 1)[-1]
+        if suffix not in self.extensions[datatype]:
+            return f'"{suffix}" is not a BIDS suffix for {datatype}/'
+        if f'{dot}{extension}{"/" if is_directory else ""}' not in self.extensions[datatype][suffix]:
+            return f'{dot}{extension} files are not allowed for {suffix}'
+        return 'Entities do not follow BIDS'
+
+
+@lru_cache(maxsize=1)
+def bids_validator():
+    return BidsValidator()
+
+
+def parse_bidsignore(text):
+    return [line.strip() for line in text.splitlines() if line.strip() and not line.strip().startswith('#')]
+
+
+def is_bidsignored(path, patterns):
+    """Whether a path matches .bidsignore patterns (gitignore-like)."""
+    parts = path.split('/')
+    folders_and_path = ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+    for pattern in patterns:
+        anchored = pattern.startswith('/') or '/' in pattern.strip('/')
+        pattern = pattern.strip('/')
+        candidates = folders_and_path if anchored else parts
+        if any(fnmatch(candidate, pattern) for candidate in candidates):
+            return True
+    return False
+
+
+def add_bids_status(rows, assets, metadatas, reader):
+    """Set the BIDS status of a dataset's files."""
+    ignore = []
+    for asset, metadata in zip(assets, metadatas):
+        if asset['path'] == '.bidsignore':
+            try:
+                ignore = parse_bidsignore(reader.read_text(asset['asset_id'], storage_url(metadata)))
+            except requests.RequestException as error:
+                warn(f"Could not read {asset['path']}: {error}")
+    root = BIDS_RAW_FOLDER if any(asset['path'].startswith(BIDS_RAW_FOLDER) for asset in assets) else ''
+    validator = bids_validator()
+    for row, asset in zip(rows, assets):
+        is_directory = bool(asset.get('zarr')) or asset['path'].endswith('.zarr')
+        row['BIDS'] = validator.status(asset['path'], is_directory, root, ignore)
+        row['BIDS issue'] = validator.issue(asset['path'], is_directory, root) if row['BIDS'] == BIDS_INVALID else ''
 
 
 def ngff_version(attributes):
@@ -201,7 +327,7 @@ def add_ome_zarr_versions(archive, client, rows, cache):
         else:
             pending.append(row)
 
-    reader = ZarrReader(client)
+    reader = StorageReader(client)
 
     def read(row):
         try:
@@ -347,6 +473,7 @@ def extract_assets(archive, client, config, cache=None):
         with ThreadPoolExecutor(max_workers=METADATA_WORKERS) as executor:
             metadatas = list(executor.map(lambda asset: asset_metadata(client, identifier, asset), assets))
 
+        first_row = len(latest_assets)
         for asset, metadata in zip(assets, metadatas):
             latest_assets.append({
                 "Archive": archive,
@@ -361,11 +488,15 @@ def extract_assets(archive, client, config, cache=None):
                 "Produced": to_utc_date(metadata.get('blobDateModified')),
                 # Upload time (set by dandi-cli); `created` changes when an asset is moved
                 "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
+                # Set by add_bids_status
+                "BIDS": '',
+                "BIDS issue": '',
                 # Set by apply_mappings, e.g. "Needs renaming: add the _SPIM suffix"
                 "Note": '',
                 "_zarr": asset.get('zarr'),
                 "_storage": storage_url(metadata),
             })
+        add_bids_status(latest_assets[first_row:], assets, metadatas, StorageReader(client))
 
     add_ome_zarr_versions(archive, client, latest_assets, cache or {})
     for row in latest_assets:
