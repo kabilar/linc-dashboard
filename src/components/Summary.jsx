@@ -2,7 +2,16 @@ import Link from "@docusaurus/Link";
 import DataTable, { ExpandableList } from "./DataTable";
 import ModalityHeatmap from "./ModalityHeatmap";
 import LoadingState from "./LoadingState";
-import { useCsv, splitList, toNumber, formatDecimal, datasetUrl } from "./data";
+import {
+  useCsv,
+  splitList,
+  toNumber,
+  formatDecimal,
+  datasetId,
+  datasetSortKey,
+  datasetUrl,
+} from "./data";
+import styles from "./Summary.module.css";
 
 const sizeColumn = {
   key: "Size (GB)",
@@ -22,7 +31,15 @@ const DATASET_COLUMNS = [
   {
     key: "Dataset",
     label: "Dataset",
-    render: (row) => <Link to={datasetUrl(row.Dataset)}>{row.Dataset}</Link>,
+    className: styles.nowrap,
+    sortValue: datasetSortKey,
+    render: (row) => <Link to={datasetUrl(row)}>{datasetId(row)}</Link>,
+  },
+  {
+    key: "Name",
+    label: "Name",
+    className: styles.name,
+    render: (row) => row.Name || <span className={styles.muted}>—</span>,
   },
   listColumn("Modality"),
   sizeColumn,
@@ -50,7 +67,7 @@ export default function Summary() {
             <DataTable
               columns={DATASET_COLUMNS}
               rows={rows}
-              rowKey={(row) => row.Dataset}
+              rowKey={datasetId}
               initialSort={{ key: "Dataset", direction: "asc" }}
             />
           )}

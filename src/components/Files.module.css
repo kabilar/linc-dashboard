@@ -84,3 +84,7 @@
   opacity: 0.6;
   transition: opacity 0.15s ease 0.1s;
 }
+
+.nowrap {
+  white-space: nowrap;
+}

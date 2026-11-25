@@ -73,9 +73,9 @@
 
 .cell {
   display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
 }
 
 .available {

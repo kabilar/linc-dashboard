@@ -9,6 +9,9 @@ import {
   formatBytes,
   formatNumber,
   compareLabels,
+  ARCHIVES,
+  datasetId,
+  datasetSortKey,
   datasetUrl,
   assetFolderUrl,
 } from "./data";
@@ -17,9 +20,27 @@ import styles from "./Files.module.css";
 const ASSETS_CSV = "lincbrain_assets.csv";
 const NONE = "(none)";
 
-// Dropdown filters, in display order. `param` is the URL query parameter.
+const ARCHIVE_ORDER = Object.keys(ARCHIVES);
+
+// Dropdown filters, in display order. `key` is the field of each file,
+// `param` the URL query parameter, `format` the option text, and `compare`
+// the option order.
 const FILTERS = [
-  { key: "Dataset", param: "dataset" },
+  {
+    key: "Archive",
+    label: "Archive",
+    param: "archive",
+    format: (archive) => ARCHIVES[archive]?.host ?? archive,
+    compare: (a, b) => ARCHIVE_ORDER.indexOf(a) - ARCHIVE_ORDER.indexOf(b),
+  },
+  {
+    key: "DatasetId",
+    label: "Dataset",
+    param: "dataset",
+    compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
+    // Only list the datasets of the selected archive.
+    visible: (option, filters) => !filters.Archive || splitId(option).Archive === filters.Archive,
+  },
   { key: "Subject", param: "subject" },
   { key: "Modality", param: "modality" },
   { key: "Extension", param: "extension" },
@@ -29,11 +50,19 @@ const SEARCH_PARAM = "q";
 // box does not create a new history entry or analytics page view per keystroke.
 const URL_SYNC_DELAY_MS = 500;
 
+// "DANDI:001412" -> { Archive: "DANDI", Dataset: "001412" }
+function splitId(id) {
+  const [Archive, Dataset] = id.split(":");
+  return { Archive, Dataset };
+}
+
 const COLUMNS = [
   {
-    key: "Dataset",
+    key: "DatasetId",
     label: "Dataset",
-    render: (row) => <Link to={datasetUrl(row.Dataset, row.Version)}>{row.Dataset}</Link>,
+    className: styles.nowrap,
+    sortValue: datasetSortKey,
+    render: (row) => <Link to={datasetUrl(row)}>{row.DatasetId}</Link>,
   },
   { key: "Subject", label: "Subject" },
   { key: "Modality", label: "Modality" },
@@ -42,7 +71,7 @@ const COLUMNS = [
     label: "Path",
     className: styles.path,
     render: (row) => (
-      <Link to={assetFolderUrl(row.Dataset, row.Version, row.Path)} title="Open the folder on lincbrain.org">
+      <Link to={assetFolderUrl(row)} title={`Open the folder on ${ARCHIVES[row.Archive]?.host ?? "its archive"}`}>
         {row.Path}
       </Link>
     ),
@@ -109,10 +138,12 @@ function FilesTable({ rows, csvUrl }) {
     () =>
       rows.map((row, index) => {
         const file = { ...row, id: index, size: toNumber(row["Size (bytes)"]) };
+        file.DatasetId = datasetId(row);
+        file.Archive = splitId(file.DatasetId).Archive;
         for (const { key } of FILTERS) {
           if (!file[key]) file[key] = NONE;
         }
-        file.searchText = [file.Dataset, file.Subject, file.Modality, file.Path, file.Extension]
+        file.searchText = [file.DatasetId, file.Subject, file.Modality, file.Path, file.Extension]
           .join(" ")
           .toLowerCase();
         return file;
@@ -123,10 +154,10 @@ function FilesTable({ rows, csvUrl }) {
   // Options for each dropdown, with the number of files for each value.
   const options = useMemo(() => {
     const result = {};
-    for (const { key } of FILTERS) {
+    for (const { key, compare = compareLabels } of FILTERS) {
       const counts = new Map();
       for (const file of files) counts.set(file[key], (counts.get(file[key]) ?? 0) + 1);
-      result[key] = [...counts].sort(([a], [b]) => compareLabels(a, b));
+      result[key] = [...counts].sort(([a], [b]) => compare(a, b));
     }
     return result;
   }, [files]);
@@ -145,6 +176,15 @@ function FilesTable({ rows, csvUrl }) {
   const isFiltered = query.trim() !== "" || FILTERS.some(({ key }) => filters[key]);
   const isStale = deferredFilters !== filters || deferredQuery !== query.trim().toLowerCase();
 
+  function changeFilter(key, value) {
+    const next = { ...filters, [key]: value };
+    // A dataset from another archive would match nothing.
+    if (key === "Archive" && value && next.DatasetId && splitId(next.DatasetId).Archive !== value) {
+      next.DatasetId = "";
+    }
+    setFilters(next);
+  }
+
   function clearFilters() {
     setFilters(Object.fromEntries(FILTERS.map(({ key }) => [key, ""])));
     setQuery("");
@@ -158,22 +198,23 @@ function FilesTable({ rows, csvUrl }) {
           <input
             type="search"
             value={query}
-            placeholder="Path, subject, modality…"
+            placeholder="Path, dataset, subject, modality…"
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        {FILTERS.map(({ key }) => {
+        {FILTERS.map(({ key, label = key, format = (option) => option, visible = () => true }) => {
           const value = filters[key];
-          const known = options[key].some(([option]) => option === value);
+          const choices = options[key].filter(([option]) => option === value || visible(option, filters));
+          const known = choices.some(([option]) => option === value);
           return (
             <label key={key} className={styles.filter}>
-              <span>{key}</span>
-              <select value={value} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}>
+              <span>{label}</span>
+              <select value={value} onChange={(event) => changeFilter(key, event.target.value)}>
                 <option value="">All</option>
-                {value && !known && <option value={value}>{value} (0)</option>}
-                {options[key].map(([option, count]) => (
+                {value && !known && <option value={value}>{format(value)} (0)</option>}
+                {choices.map(([option, count]) => (
                   <option key={option} value={option}>
-                    {option} ({formatNumber(count)})
+                    {format(option)} ({formatNumber(count)})
                   </option>
                 ))}
               </select>

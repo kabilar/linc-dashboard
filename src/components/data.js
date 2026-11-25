@@ -2,7 +2,27 @@ import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-export const LINCBRAIN_URL = "https://lincbrain.org";
+// Archives indexed by extract_metadata.py, keyed by the `Archive` column.
+export const ARCHIVES = {
+  LINC: { host: "lincbrain.org", url: "https://lincbrain.org" },
+  DANDI: { host: "dandiarchive.org", url: "https://dandiarchive.org" },
+};
+const ARCHIVE_ORDER = Object.keys(ARCHIVES);
+const DEFAULT_ARCHIVE = "LINC";
+
+function archiveOf(row) {
+  return ARCHIVES[row.Archive] ? row.Archive : DEFAULT_ARCHIVE;
+}
+
+// Dataset identifier including its archive, e.g. "LINC:000003" or "DANDI:001412".
+export function datasetId(row) {
+  return `${archiveOf(row)}:${row.Dataset}`;
+}
+
+// Sort key that lists datasets by archive (in ARCHIVES order), then by ID.
+export function datasetSortKey(row) {
+  return `${ARCHIVE_ORDER.indexOf(archiveOf(row))}:${row.Dataset}`;
+}
 
 // Fetch and parse a CSV file from the `static/` directory.
 // Every value is kept as a string (e.g. dataset IDs such as "000003" must keep
@@ -98,13 +118,14 @@ export function compareLabels(a, b) {
   return collator.compare(a, b);
 }
 
-export function datasetUrl(dataset, version = "draft") {
-  return `${LINCBRAIN_URL}/dandiset/${dataset}/${version || "draft"}`;
+// Link to a dataset on its archive (lincbrain.org or dandiarchive.org).
+export function datasetUrl(row) {
+  return `${ARCHIVES[archiveOf(row)].url}/dandiset/${row.Dataset}/${row.Version || "draft"}`;
 }
 
-// Link to the folder that contains an asset in the lincbrain.org file browser.
-export function assetFolderUrl(dataset, version, path) {
-  const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-  const base = `${datasetUrl(dataset, version)}/files`;
+// Link to the folder that contains an asset in its archive's file browser.
+export function assetFolderUrl(row) {
+  const folder = row.Path.includes("/") ? row.Path.slice(0, row.Path.lastIndexOf("/")) : "";
+  const base = `${datasetUrl(row)}/files`;
   return folder ? `${base}?location=${encodeURIComponent(folder)}` : base;
 }
