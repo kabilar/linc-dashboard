@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -114,6 +115,27 @@ def parse_extension(path):
     return suffixes[0][1:] if suffixes else ''
 
 
+def to_utc_date(value):
+    """ISO 8601 timestamp -> UTC date, e.g. 2026-05-29T16:51:24-04:00 -> 2026-05-29."""
+    if not value:
+        return ''
+    try:
+        timestamp = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return ''
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(timezone.utc).strftime('%Y-%m-%d')
+
+
+def asset_metadata(client, identifier, asset):
+    # The listing includes each asset's metadata when requested with
+    # metadata=true; otherwise fetch it separately.
+    if 'metadata' in asset:
+        return asset['metadata']
+    return client.get(f'/dandisets/{identifier}/versions/{VERSION}/assets/{asset["asset_id"]}/')
+
+
 def dataset_name(dandiset):
     return (dandiset.get('draft_version') or {}).get('name', '')
 
@@ -146,7 +168,7 @@ def extract_assets(archive, client, config):
     for identifier in sorted(datasets):
         try:
             assets = list(client.paginate(f'/dandisets/{identifier}/versions/{VERSION}/assets/',
-                                          {'order': 'path'}))
+                                          {'order': 'path', 'metadata': 'true'}))
         except requests.HTTPError as error:
             if not is_access_error(error):
                 raise
@@ -155,8 +177,11 @@ def extract_assets(archive, client, config):
             continue
 
         print(f'{archive}:{identifier}: {len(assets)} assets', flush=True)
+        if assets and 'metadata' not in assets[0]:
+            print(f'{archive}:{identifier}: fetching metadata for each asset', flush=True)
 
         for asset in assets:
+            metadata = asset_metadata(client, identifier, asset)
             latest_assets.append({
                 "Archive": archive,
                 "Dataset": identifier,
@@ -166,6 +191,10 @@ def extract_assets(archive, client, config):
                 "Size (bytes)": asset['size'],
                 "Path": asset['path'],
                 "Extension": parse_extension(asset['path']),
+                # Last modification time of the file when it was uploaded
+                "Produced": to_utc_date(metadata.get('blobDateModified')),
+                # Upload time (set by dandi-cli); `created` changes when an asset is moved
+                "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
             })
 
     names = pd.DataFrame([{"Archive": archive, "Dataset": identifier, "Name": name}
@@ -177,16 +206,29 @@ def join_unique(values):
     return ','.join(values.unique())
 
 
+def earliest(values):
+    values = values[values != '']
+    return values.min() if len(values) else ''
+
+
+def latest(values):
+    values = values[values != '']
+    return values.max() if len(values) else ''
+
+
 # Summarize data across datasets
 def summarize_datasets(df, df_names):
     df_datasets = (df.groupby(['Archive', 'Dataset'], sort=False)
                      .agg(**{"Modality": ("Modality", join_unique),
                              "Size (GB)": ("Size (bytes)", lambda sizes: round(sizes.sum()/(1000**3), 2)),
                              "Subject": ("Subject", join_unique),
-                             "Extension": ("Extension", join_unique)})
+                             "Extension": ("Extension", join_unique),
+                             "First uploaded": ("Uploaded", earliest),
+                             "Last uploaded": ("Uploaded", latest)})
                      .reset_index())
     df_datasets = df_datasets.merge(df_names, on=['Archive', 'Dataset'], how='left')
-    return df_datasets[["Archive", "Dataset", "Name", "Modality", "Size (GB)", "Subject", "Extension"]]
+    return df_datasets[["Archive", "Dataset", "Name", "Modality", "Size (GB)", "Subject", "Extension",
+                        "First uploaded", "Last uploaded"]]
 
 
 # Summarize data across modalities
