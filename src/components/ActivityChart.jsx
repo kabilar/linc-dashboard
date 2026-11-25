@@ -29,7 +29,7 @@ function segmentPath(x, y, width, height, rounded) {
 }
 
 /**
- * Files (or bytes) per month, stacked by modality.
+ * Bytes (or files) per month, stacked by modality.
  *
  * files: [{ Modality, size, Produced, Uploaded }]
  * basis: "Produced" | "Uploaded"
@@ -37,7 +37,7 @@ function segmentPath(x, y, width, height, rounded) {
  * modalities: modality names in stacking order
  */
 export default function ActivityChart({ files, basis, months, modalities }) {
-  const [metric, setMetric] = useState("files");
+  const [metric, setMetric] = useState("size");
   const [view, setView] = useState("chart");
   const [active, setActive] = useState(null);
   const plotRef = useRef(null);
@@ -243,8 +243,8 @@ export default function ActivityChart({ files, basis, months, modalities }) {
             value={metric}
             onChange={setMetric}
             options={[
-              { value: "files", label: "Files" },
               { value: "size", label: "Size" },
+              { value: "files", label: "Files" },
             ]}
           />
           <Segmented
