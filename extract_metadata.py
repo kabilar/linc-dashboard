@@ -10,11 +10,11 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 modalities = {'oct': 'PS-OCT',
-              'df': 'Dark field microscopy',
+              'df': 'Dark-field microscopy',
               'xpct': 'HiP-CT',
               'dwi': 'Diffusion MRI',
-              'fluo': 'Light sheet microscopy',
-              'spim': 'Light sheet microscopy',
+              'fluo': 'Light-sheet microscopy',
+              'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
 
 # Archives to index, keyed by the prefix of their dataset identifiers

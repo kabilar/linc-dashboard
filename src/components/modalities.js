@@ -6,10 +6,10 @@ import { compareLabels } from "./data";
 // (e.g. stacked); "Unknown" is a neutral gray.
 export const MODALITIES = [
   { name: "PS-OCT", color: "#257de0" },
-  { name: "Dark field microscopy", color: "#f47230" },
+  { name: "Dark-field microscopy", color: "#f47230" },
   { name: "HiP-CT", color: "#00b894" },
   { name: "Diffusion MRI", color: "#f2a600" },
-  { name: "Light sheet microscopy", color: "#ee7fac" },
+  { name: "Light-sheet microscopy", color: "#ee7fac" },
   { name: "Blockface photo", color: "#008a17" },
   { name: "Unknown", color: "#b9bac2" },
 ];
