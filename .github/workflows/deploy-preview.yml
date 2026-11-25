@@ -13,7 +13,6 @@ on:
       - gh-pages
   workflow_dispatch:
 
-# Only the latest push is deployed
 concurrency:
   group: deploy-preview
   cancel-in-progress: true
