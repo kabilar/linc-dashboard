@@ -90,8 +90,9 @@ export function formatDecimal(value) {
   return decimalFormat.format(value);
 }
 
-export const PRODUCED_DESCRIPTION = "Last-modified date of the file when it was uploaded (UTC)";
-export const UPLOADED_DESCRIPTION = "Date the file was uploaded to the archive (UTC)";
+export const PRODUCED_DESCRIPTION = "The file's last-modified date when it was uploaded, in UTC.";
+export const UPLOADED_DESCRIPTION = "The date the file was uploaded to the archive, in UTC.";
+export const UPLOAD_RANGE_DESCRIPTION = "The first and last dates files were uploaded to the archive, in UTC.";
 
 // Decimal (SI) units, consistent with `Size (GB)` in extract_metadata.py.
 const BYTE_UNITS = ["B", "kB", "MB", "GB", "TB", "PB"];

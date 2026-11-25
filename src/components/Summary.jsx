@@ -21,7 +21,7 @@ import {
   datasetId,
   datasetSortKey,
   datasetUrl,
-  UPLOADED_DESCRIPTION,
+  UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
 import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
@@ -73,7 +73,7 @@ const DATASET_COLUMNS = [
   {
     key: "Last uploaded",
     label: "Uploaded",
-    description: `First and last ${UPLOADED_DESCRIPTION.charAt(0).toLowerCase()}${UPLOADED_DESCRIPTION.slice(1)}`,
+    description: UPLOAD_RANGE_DESCRIPTION,
     className: styles.nowrap,
     render: (row) => {
       const first = row["First uploaded"];

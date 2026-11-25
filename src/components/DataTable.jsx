@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { compareLabels, formatNumber } from "./data";
+import InfoTip from "./InfoTip";
 import styles from "./DataTable.module.css";
 
 // A comma-separated list that collapses when it has many items.
@@ -45,6 +46,7 @@ function SortIndicator({ direction }) {
  * A sortable (and optionally paginated) table.
  *
  * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable? }]
+ * A column's description is shown with an info button next to its header.
  * rowKey: (row) => unique key; rows keep their state (e.g. expanded lists) when re-sorted.
  */
 export default function DataTable({
@@ -115,18 +117,17 @@ export default function DataTable({
                     scope="col"
                     className={clsx(column.align === "right" && styles.alignRight)}
                     aria-sort={direction ? (direction === "asc" ? "ascending" : "descending") : undefined}>
-                    {sortable ? (
-                      <button
-                        type="button"
-                        className={styles.sortButton}
-                        title={column.description}
-                        onClick={() => toggleSort(column.key)}>
-                        {column.label}
-                        <SortIndicator direction={direction} />
-                      </button>
-                    ) : (
-                      column.label
-                    )}
+                    <span className={styles.header}>
+                      {sortable ? (
+                        <button type="button" className={styles.sortButton} onClick={() => toggleSort(column.key)}>
+                          {column.label}
+                          <SortIndicator direction={direction} />
+                        </button>
+                      ) : (
+                        column.label
+                      )}
+                      {column.description && <InfoTip label={`About ${column.label}`}>{column.description}</InfoTip>}
+                    </span>
                   </th>
                 );
               })}

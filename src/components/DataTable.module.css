@@ -67,6 +67,16 @@
   color: var(--ifm-color-emphasis-700);
 }
 
+.header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.alignRight .header {
+  flex-direction: row-reverse;
+}
+
 .sortButton {
   display: inline-flex;
   align-items: center;
