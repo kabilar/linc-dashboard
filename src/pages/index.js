@@ -1,6 +1,7 @@
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
+import Summary from '@site/src/components/Summary';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -27,6 +28,11 @@ export default function Home() {
       title={`${siteConfig.title}`}
       description={`${siteConfig.tagline}`}>
       <HomepageHeader />
+      <main className="container">
+        <div className="viewer-card">
+          <Summary />
+        </div>
+      </main>
     </Layout>
   );
 }

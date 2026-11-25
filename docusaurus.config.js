@@ -44,7 +44,6 @@ const config = {
           src: 'img/linc.logo.color+black.alpha.notext.png',
         },
         items: [
-          {to: '/summary', label: 'Summary', position: 'right'},
           {to: '/files', label: 'All Files', position: 'right'},
           {to: 'https://lincbrain.org', label: 'lincbrain.org ↗', position: 'right'},
           {to: 'https://connects.mgh.harvard.edu/', label: 'Homepage ↗', position: 'right'},

@@ -19,10 +19,10 @@
   color: rgb(220, 200, 255);
 }
 
-/* Homepage features */
+/* Homepage header, above the dashboard */
 .heroBanner {
   position: relative;
-  min-height: calc(100vh - 120px);
+  padding: 2.5rem 1rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,14 +50,10 @@
   font-size: 1.5rem;
   font-weight: normal;
   color: rgb(117, 117, 117);
-  margin-bottom: 5rem;
+  margin-bottom: 0;
 }
 
 @media screen and (max-width: 996px) {
-  .heroBanner {
-    min-height: calc(100vh - 50px);
-  }
-  
   .heroTitle {
     font-size: 2.5rem;
   }
