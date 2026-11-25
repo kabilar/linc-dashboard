@@ -1,8 +1,10 @@
+import math
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 import requests
@@ -52,7 +54,12 @@ VERSION = 'draft'
 ASSETS_CSV = './static/lincbrain_assets.csv'
 
 OME_ZARR = 'OME-Zarr'
-# Concurrent requests when reading OME-Zarr metadata
+
+PAGE_SIZE = 1000
+# Concurrent requests for the pages of a listing, for the metadata of each
+# asset (if not included in the listing), and for OME-Zarr metadata
+PAGE_WORKERS = 8
+METADATA_WORKERS = 16
 ZARR_WORKERS = 16
 
 # Dataset-level BIDS files that do not belong to a subject
@@ -68,7 +75,8 @@ class ArchiveClient:
         self.api_url = api_url
         self.session = requests.Session()
         retries = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
-        self.session.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=ZARR_WORKERS))
+        workers = max(PAGE_WORKERS, METADATA_WORKERS, ZARR_WORKERS)
+        self.session.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=workers))
         if token:
             self.session.headers['Authorization'] = f'token {token}'
 
@@ -86,15 +94,30 @@ class ArchiveClient:
         return response.json()
 
     def paginate(self, path, params=None):
-        url = f'{self.api_url}{path}'
-        params = {'page_size': 1000, **(params or {})}
-        while url:
-            response = self.session.get(url, params=params, timeout=120)
+        params = {'page_size': PAGE_SIZE, **(params or {})}
+        first = self.get(path, params)
+        yield from first['results']
+        next_url = first.get('next')
+        if not next_url:
+            return
+
+        if 'count' in first and parse_qs(urlparse(next_url).query).get('page') == ['2']:
+            # Numbered pages: fetch the others concurrently, keeping their order
+            page_count = math.ceil(first['count'] / len(first['results']))
+            with ThreadPoolExecutor(max_workers=PAGE_WORKERS) as executor:
+                pages = executor.map(lambda number: self.get(path, {**params, 'page': number}),
+                                     range(2, page_count + 1))
+                for page in pages:
+                    yield from page['results']
+            return
+
+        while next_url:
+            # The `next` URL already includes the query parameters
+            response = self.session.get(next_url, timeout=120)
             response.raise_for_status()
             page = response.json()
             yield from page['results']
-            # The `next` URL already includes the query parameters
-            url, params = page['next'], None
+            next_url = page['next']
 
 
 class ZarrReader:
@@ -316,12 +339,15 @@ def extract_assets(archive, client, config, cache=None):
             del datasets[identifier]
             continue
 
+        # An asset may be listed twice if the dataset changes while it is listed
+        assets = list({asset['asset_id']: asset for asset in assets}.values())
         print(f'{archive}:{identifier}: {len(assets)} assets', flush=True)
         if assets and 'metadata' not in assets[0]:
             print(f'{archive}:{identifier}: fetching metadata for each asset', flush=True)
+        with ThreadPoolExecutor(max_workers=METADATA_WORKERS) as executor:
+            metadatas = list(executor.map(lambda asset: asset_metadata(client, identifier, asset), assets))
 
-        for asset in assets:
-            metadata = asset_metadata(client, identifier, asset)
+        for asset, metadata in zip(assets, metadatas):
             latest_assets.append({
                 "Archive": archive,
                 "Dataset": identifier,
