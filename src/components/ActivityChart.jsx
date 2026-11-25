@@ -7,10 +7,8 @@ import { formatCompact, longMonth, niceStep, shortMonth, useElementWidth } from 
 import styles from "./Charts.module.css";
 
 const HEIGHT = 300;
-const MARGIN = { top: 12, right: 8, bottom: 40, left: 60 };
-const GAP = 2; // surface gap between stacked segments
-const RADIUS = 4;
-const MAX_BAR_WIDTH = 24;
+const MARGIN = { top: 12, right: 16, bottom: 40, left: 60 };
+const FILL_OPACITY = 0.18;
 
 const METRICS = {
   files: { label: "Files", value: (cell) => cell.files, format: formatNumber, tick: formatCompact },
@@ -22,14 +20,12 @@ const METRICS = {
   },
 };
 
-// A column segment; the top segment of a column gets rounded top corners.
-function segmentPath(x, y, width, height, rounded) {
-  const r = rounded ? Math.min(RADIUS, height, width / 2) : 0;
-  return `M${x},${y + height}V${y + r}Q${x},${y} ${x + r},${y}H${x + width - r}Q${x + width},${y} ${x + width},${y + r}V${y + height}Z`;
+function linePath(points) {
+  return points.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join("");
 }
 
 /**
- * Bytes (or files) per month, stacked by modality.
+ * Running total of bytes (or files) by month, as lines stacked by modality.
  *
  * files: [{ Modality, size, Produced, Uploaded }]
  * basis: "Produced" | "Uploaded"
@@ -68,11 +64,21 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const cell = byMonth.get(month).get(modality);
     return cell ? value(cell) : 0;
   };
-  const totals = months.map((month) => shown.reduce((sum, modality) => sum + valueOf(month, modality), 0));
+  // Running totals of each modality, and of all of them
+  const running = Object.fromEntries(shown.map((modality) => [modality, []]));
+  const sums = Object.fromEntries(shown.map((modality) => [modality, 0]));
+  months.forEach((month, i) => {
+    for (const modality of shown) {
+      sums[modality] += valueOf(month, modality);
+      running[modality][i] = sums[modality];
+    }
+  });
+  const totals = months.map((_, i) => shown.reduce((sum, modality) => sum + running[modality][i], 0));
+  const added = months.map((month) => shown.reduce((sum, modality) => sum + valueOf(month, modality), 0));
   const verb = basis.toLowerCase();
 
   const tableColumns = [
-    { key: "month", label: "Month", render: (row) => longMonth(row.month) },
+    { key: "month", label: "By the end of", render: (row) => longMonth(row.month) },
     ...shown.map((modality) => ({
       key: modality,
       label: modality,
@@ -80,13 +86,15 @@ export default function ActivityChart({ files, basis, months, modalities }) {
       render: (row) => (row[modality] ? format(row[modality]) : "—"),
     })),
     { key: "total", label: "Total", align: "right", render: (row) => format(row.total) },
+    { key: "added", label: "Added that month", align: "right", render: (row) => format(row.added) },
   ];
   const tableRows = months
     .map((month, index) => ({
       id: month,
       month,
       total: totals[index],
-      ...Object.fromEntries(shown.map((modality) => [modality, valueOf(month, modality)])),
+      added: added[index],
+      ...Object.fromEntries(shown.map((modality) => [modality, running[modality][index]])),
     }))
     .filter((row) => row.total > 0);
 
@@ -94,17 +102,32 @@ export default function ActivityChart({ files, basis, months, modalities }) {
   if (width > 0 && shown.length > 0) {
     const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
     const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
-    const max = Math.max(...totals);
-    const step = niceStep(max);
+    const max = totals[totals.length - 1];
+    // File counts are whole numbers, so their ticks are too
+    const step = metric === "files" ? Math.max(1, niceStep(max)) : niceStep(max);
     const tickCount = Math.max(1, Math.ceil(max / step));
     const top = tickCount * step;
     const y = (v) => MARGIN.top + innerHeight - (v / top) * innerHeight;
-    const band = innerWidth / months.length;
-    const barWidth = Math.max(2, Math.min(MAX_BAR_WIDTH, band * 0.6));
-    const labelEvery = band >= 30 ? 1 : band >= 12 ? 3 : 6;
+    const count = months.length;
+    const spacing = count > 1 ? innerWidth / (count - 1) : innerWidth;
+    const x = (i) => MARGIN.left + (count > 1 ? i * spacing : innerWidth / 2);
+    const labelEvery = spacing >= 30 ? 1 : spacing >= 12 ? 3 : 6;
+
+    // Stack the modalities' running totals, in order, from the bottom
+    let lower = months.map(() => 0);
+    const layers = shown.map((modality) => {
+      const upper = lower.map((v, i) => v + running[modality][i]);
+      const layer = { modality, lower, upper };
+      lower = upper;
+      return layer;
+    });
 
     chart = (
-      <svg width={width} height={HEIGHT} role="group" aria-label={`${METRICS[metric].label} ${verb} per month, by modality`}>
+      <svg
+        width={width}
+        height={HEIGHT}
+        role="group"
+        aria-label={`Running total of ${METRICS[metric].label.toLowerCase()} ${verb}, stacked by modality`}>
         {Array.from({ length: tickCount + 1 }, (_, i) => i * step).map((t) => (
           <g key={t}>
             <line
@@ -121,43 +144,17 @@ export default function ActivityChart({ files, basis, months, modalities }) {
         ))}
 
         {months.map((month, i) => {
-          const center = MARGIN.left + band * (i + 0.5);
-          const x = center - barWidth / 2;
           const monthNumber = Number(month.slice(5, 7));
-          const segments = shown.map((modality) => [modality, valueOf(month, modality)]).filter(([, v]) => v > 0);
-          let base = 0;
           return (
             <g key={month}>
-              {active === i && (
-                <rect
-                  x={MARGIN.left + band * i}
-                  y={MARGIN.top}
-                  width={band}
-                  height={innerHeight}
-                  fill="var(--ifm-color-primary)"
-                  opacity="0.07"
-                />
-              )}
-              {segments.map(([modality, v], j) => {
-                const y1 = y(base + v);
-                const height = Math.max(1, y(base) - y1 - (j > 0 ? GAP : 0));
-                base += v;
-                return (
-                  <path
-                    key={modality}
-                    d={segmentPath(x, y1, barWidth, height, j === segments.length - 1)}
-                    fill={modalityColor(modality)}
-                  />
-                );
-              })}
               {(labelEvery === 1 || (monthNumber - 1) % labelEvery === 0) && (
-                <text x={center} y={HEIGHT - MARGIN.bottom + 16} textAnchor="middle" fontSize="11" fill="var(--ifm-color-emphasis-700)">
+                <text x={x(i)} y={HEIGHT - MARGIN.bottom + 16} textAnchor="middle" fontSize="11" fill="var(--ifm-color-emphasis-700)">
                   {shortMonth(month)}
                 </text>
               )}
               {(monthNumber === 1 || i === 0) && (
                 <text
-                  x={center}
+                  x={x(i)}
                   y={HEIGHT - MARGIN.bottom + 31}
                   textAnchor="middle"
                   fontSize="11"
@@ -166,26 +163,89 @@ export default function ActivityChart({ files, basis, months, modalities }) {
                   {month.slice(0, 4)}
                 </text>
               )}
-              <g
-                className={styles.hit}
-                tabIndex={0}
-                role="img"
-                aria-label={`${longMonth(month)}: ${format(totals[i])} ${METRICS[metric].label.toLowerCase()} ${verb}${
-                  segments.length ? ` (${segments.map(([m, v]) => `${m} ${format(v)}`).join(", ")})` : ""
-                }`}
-                onPointerEnter={() => setActive(i)}
-                onFocus={() => setActive(i)}
-                onBlur={() => setActive(null)}>
-                <rect
-                  className={styles.focusRing}
-                  x={MARGIN.left + band * i + 1}
-                  y={MARGIN.top}
-                  width={Math.max(1, band - 2)}
-                  height={innerHeight}
-                  fill="transparent"
-                  rx="3"
-                />
-              </g>
+            </g>
+          );
+        })}
+
+        {/* Bands, then the line at the top of each band. Lines are drawn from the top
+            layer down, so that where a layer is too thin to see, its line does not
+            hide the line of the layer below. */}
+        {count > 1 &&
+          layers.map(({ modality, lower: bottom, upper }) => (
+            <path
+              key={`${modality}-band`}
+              d={`${linePath(upper.map((v, i) => [x(i), y(v)]))}${linePath(
+                bottom.map((v, i) => [x(i), y(v)]).reverse(),
+              ).replace("M", "L")}Z`}
+              fill={modalityColor(modality)}
+              fillOpacity={FILL_OPACITY}
+            />
+          ))}
+        {count > 1 &&
+          [...layers].reverse().map(({ modality, upper }) => (
+            <path
+              key={`${modality}-line`}
+              d={linePath(upper.map((v, i) => [x(i), y(v)]))}
+              fill="none"
+              stroke={modalityColor(modality)}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          ))}
+
+        {/* The hovered month: a vertical line and a marker on each line */}
+        {(active !== null || count === 1) && (() => {
+          const i = count === 1 ? 0 : active;
+          return (
+            <g pointerEvents="none">
+              {active !== null && (
+                <line x1={x(i)} x2={x(i)} y1={MARGIN.top} y2={MARGIN.top + innerHeight} stroke="var(--ifm-color-emphasis-500)" />
+              )}
+              {[...layers]
+                .reverse()
+                .filter(({ modality }) => running[modality][i] > 0)
+                .map(({ modality, upper }) => (
+                  <circle
+                    key={modality}
+                    cx={x(i)}
+                    cy={y(upper[i])}
+                    r="4"
+                    fill={modalityColor(modality)}
+                    stroke="var(--ifm-background-color)"
+                    strokeWidth="2"
+                  />
+                ))}
+            </g>
+          );
+        })()}
+
+        {/* Hover and keyboard targets: one column around each month */}
+        {months.map((month, i) => {
+          const left = count > 1 ? Math.max(MARGIN.left, x(i) - spacing / 2) : MARGIN.left;
+          const right = count > 1 ? Math.min(MARGIN.left + innerWidth, x(i) + spacing / 2) : MARGIN.left + innerWidth;
+          const parts = shown.filter((modality) => running[modality][i] > 0);
+          return (
+            <g
+              key={`${month}-hit`}
+              className={styles.hit}
+              tabIndex={0}
+              role="img"
+              aria-label={`By the end of ${longMonth(month)}: ${format(totals[i])} ${verb} in total${
+                parts.length ? ` (${parts.map((m) => `${m} ${format(running[m][i])}`).join(", ")})` : ""
+              }, ${format(added[i])} added that month`}
+              onPointerEnter={() => setActive(i)}
+              onFocus={() => setActive(i)}
+              onBlur={() => setActive(null)}>
+              <rect
+                className={styles.focusRing}
+                x={left}
+                y={MARGIN.top}
+                width={Math.max(1, right - left)}
+                height={innerHeight}
+                fill="transparent"
+                rx="3"
+              />
             </g>
           );
         })}
@@ -194,23 +254,21 @@ export default function ActivityChart({ files, basis, months, modalities }) {
 
     if (active !== null && active < months.length) {
       const month = months[active];
-      const rows = shown.map((modality) => [modality, valueOf(month, modality)]).filter(([, v]) => v > 0);
-      const center = MARGIN.left + band * (active + 0.5);
-      const onRight = center < width * 0.6;
+      const rows = shown.map((modality) => [modality, running[modality][active]]).filter(([, v]) => v > 0);
+      const position = x(active);
+      const onRight = position < width * 0.6;
       chart = (
         <>
           {chart}
           <div
             className={styles.tooltip}
             style={{
-              left: onRight ? center + band / 2 + 6 : undefined,
-              right: onRight ? undefined : width - center + band / 2 + 6,
+              left: onRight ? position + 12 : undefined,
+              right: onRight ? undefined : width - position + 12,
               top: MARGIN.top,
             }}>
-            <div className={styles.tooltipTitle}>
-              {longMonth(month)} · {verb}
-            </div>
-            {rows.length === 0 && <div className={styles.hint}>Nothing {verb}</div>}
+            <div className={styles.tooltipTitle}>By the end of {longMonth(month)}</div>
+            {rows.length === 0 && <div className={styles.hint}>Nothing {verb} yet</div>}
             {rows.map(([modality, v]) => (
               <div key={modality} className={styles.tooltipRow}>
                 <span className={styles.key} style={{ background: modalityColor(modality) }} />
@@ -218,13 +276,16 @@ export default function ActivityChart({ files, basis, months, modalities }) {
                 <span>{modality}</span>
               </div>
             ))}
-            {rows.length > 1 && (
+            {rows.length > 0 && (
               <div className={`${styles.tooltipRow} ${styles.tooltipTotal}`}>
                 <span className={styles.key} />
                 <strong>{format(totals[active])}</strong>
                 <span>{metric === "files" ? "files" : "in total"}</span>
               </div>
             )}
+            <div className={styles.hint}>
+              {format(added[active])} {verb} in {longMonth(month).split(" ")[0]}
+            </div>
           </div>
         </>
       );
@@ -235,7 +296,7 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     <section className={styles.card}>
       <div className={styles.header}>
         <h3 className={styles.title}>Activity over time</h3>
-        <span className={styles.description}>Data {verb} each month, by modality.</span>
+        <span className={styles.description}>Running total of the data {verb}, by modality.</span>
         <div className={styles.toggles}>
           <Segmented
             small

@@ -44,13 +44,12 @@ export function monthEndValue(month) {
   return Date.UTC(year, index, 1);
 }
 
-// A round step (1, 2, 2.5 or 5 x 10^n) giving about `count` axis intervals.
+// The smallest round step (1, 2, 2.5 or 5 x 10^n) that spans `max` in at
+// most `count` + 1 intervals, so the axis ends just above the data.
 export function niceStep(max, count = 4) {
   if (!(max > 0)) return 1;
-  const raw = max / count;
-  const power = 10 ** Math.floor(Math.log10(raw));
-  const fraction = raw / power;
-  const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+  const power = 10 ** Math.floor(Math.log10(max / count));
+  const nice = [1, 2, 2.5, 5].find((n) => Math.ceil(max / (n * power)) <= count + 1) ?? 10;
   return nice * power;
 }
 
