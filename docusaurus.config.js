@@ -71,21 +71,11 @@ const config = {
         style: 'light',
         links: [
           {
-            items: [
-              {
-                label: 'GitHub',
-                href: 'https://github.com/lincbrain/linc-dashboard',
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                html: `<div style="text-align: right;">© ${new Date().getFullYear()} LINC</div>`,
-              },
-            ],
+            label: 'GitHub',
+            href: 'https://github.com/lincbrain/linc-dashboard',
           },
         ],
+        copyright: `© ${new Date().getFullYear()} LINC`,
       },
       colorMode: {
         defaultMode: 'light',

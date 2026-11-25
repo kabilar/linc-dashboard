@@ -109,15 +109,32 @@
   }
 }
 
-/* Reduce footer height */
+/* Footer: the GitHub link and the copyright on one row, aligned with the
+   page's cards, at every width */
 .footer {
-  padding-top: 0rem;
-  padding-bottom: 0.75rem;
+  padding: 1rem 0;
 }
 
-.footer__links {
-  margin-top: 0;
-  margin-bottom: 0;
+.footer > .container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
+  max-width: 100%;
+  padding: 0;
+}
+
+.footer__links,
+.footer__bottom {
+  margin: 0;
+}
+
+.footer__link-item,
+.footer__copyright {
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-700);
 }
 
 /* Page styling */
