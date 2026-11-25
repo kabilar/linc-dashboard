@@ -1,0 +1,86 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.search,
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.search {
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+
+.filter {
+  flex: 0 1 12rem;
+  min-width: 8rem;
+}
+
+.search input,
+.filter select {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background-color: var(--ifm-background-color);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: var(--ifm-font-color-base);
+}
+
+.search input:focus-visible,
+.filter select:focus-visible,
+.clear:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 1px;
+}
+
+.clear {
+  height: 2.25rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background-color: var(--ifm-background-color);
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ifm-color-primary);
+  cursor: pointer;
+}
+
+.clear:hover {
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-800);
+  font-variant-numeric: tabular-nums;
+}
+
+.path {
+  overflow-wrap: anywhere;
+  min-width: 16rem;
+}
+
+/* Previous results stay visible, dimmed, while a new filter is applied. */
+.stale {
+  opacity: 0.6;
+  transition: opacity 0.15s ease 0.1s;
+}

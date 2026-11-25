@@ -1,0 +1,183 @@
+.wrapper {
+  width: 100%;
+  margin-bottom: 2rem;
+  /* Keep the table header clear of the fixed navbar when scrolled into view. */
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 1rem);
+}
+
+.scroller {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+}
+
+/* Override Infima's default table styles (block display, striped rows). */
+.table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table thead {
+  background-color: transparent;
+}
+
+.table tr,
+.table tr:nth-child(2n) {
+  background-color: transparent;
+  border: 0;
+}
+
+.table tbody tr:hover {
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+.table th,
+.table td {
+  border: 0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table tbody tr + tr td {
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.table thead th {
+  background-color: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table .alignRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.caption {
+  caption-side: top;
+  text-align: left;
+  padding: 0 0 0.5rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.alignRight .sortButton {
+  flex-direction: row-reverse;
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.sortIndicator {
+  font-size: 0.7rem;
+  color: var(--ifm-color-primary);
+}
+
+.sortIndicatorIdle {
+  color: var(--ifm-color-emphasis-500);
+}
+
+.empty {
+  text-align: center !important;
+  padding: 2rem !important;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.muted {
+  color: var(--ifm-color-emphasis-500);
+}
+
+.list {
+  display: inline-block;
+  min-width: min(14rem, 60vw);
+  overflow-wrap: break-word;
+}
+
+.listToggle {
+  margin-left: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--ifm-color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.listToggle:hover {
+  text-decoration: underline;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 1.5rem;
+  padding-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.pageSize {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pageSize select,
+.pageButtons button {
+  font: inherit;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  background-color: var(--ifm-background-color);
+  color: inherit;
+}
+
+.pageButtons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pageButtons button {
+  min-width: 2rem;
+  cursor: pointer;
+}
+
+.pageButtons button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.pageNumber {
+  padding: 0 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.range {
+  font-variant-numeric: tabular-nums;
+}

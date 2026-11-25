@@ -88,10 +88,12 @@
   margin-bottom: 0;
 }
 
-/* Page stlying */
+/* Page styling */
+/* Full width of the page column (95vw minus its padding), so that the
+   content does not overflow the viewport on small screens. */
 .viewer-card {
-  min-width: 95vw;
-  max-width: 95vw;
+  width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
+  max-width: 100%;
 }
 
 /* Main content of each page */
