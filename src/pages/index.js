@@ -11,11 +11,7 @@ function HomepageHeader() {
         <Heading as="h1" className="heroTitle">
           {siteConfig.title}
         </Heading>
-        <p className="heroSubtitle">
-          {siteConfig.tagline.split('. ').map((sentence, i, arr) => (
-            <span key={i}>{sentence}{i < arr.length - 1 ? '.' : ''}<br /></span>
-          ))}
-        </p>
+        <p className="heroSubtitle">{siteConfig.tagline}</p>
       </div>
     </header>
   );
