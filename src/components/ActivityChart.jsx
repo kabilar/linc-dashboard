@@ -276,7 +276,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
         <SectionHeading as="h3" id="data-over-time" className={styles.title}>
           {`Data ${verb} over time`}
         </SectionHeading>
-        <span className={styles.description}>Running total by modality.</span>
         <div className={styles.toggles}>
           <Segmented
             small
