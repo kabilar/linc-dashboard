@@ -28,7 +28,10 @@ jobs:
 
     - name: Run Python script
       env:
+        # API key for lincbrain.org
         DANDI_API_KEY: ${{ secrets.DANDI_API_KEY }}
+        # Optional API key for dandiarchive.org, needed for embargoed datasets
+        DANDI_ARCHIVE_API_KEY: ${{ secrets.DANDI_ARCHIVE_API_KEY }}
       run: python extract_metadata.py
 
     - name: Commit and push CSV files
