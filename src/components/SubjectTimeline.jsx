@@ -4,6 +4,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } from "./modalities";
 import { compareLabels, formatNumber } from "./data";
 import { dayValue, monthEndValue, shortMonth, useElementWidth } from "./charts";
+import SectionHeading from "./SectionHeading";
 import styles from "./Charts.module.css";
 
 // Values of the Subject column that are not subjects
@@ -204,7 +205,9 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   return (
     <section className={styles.card}>
       <div className={styles.header}>
-        <h3 className={styles.title}>Subject timeline</h3>
+        <SectionHeading as="h3" id="subject-timeline" className={styles.title}>
+          Subject timeline
+        </SectionHeading>
         <span className={styles.description}>
           When each subject's data was {verb}, by modality. Select a bar to see its files.
         </span>

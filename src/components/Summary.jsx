@@ -7,6 +7,7 @@ import MultiSelect from "./MultiSelect";
 import Segmented from "./Segmented";
 import ActivityChart from "./ActivityChart";
 import SubjectTimeline from "./SubjectTimeline";
+import SectionHeading, { useScrollToHash } from "./SectionHeading";
 import useUrlFilters, { emptyFilters, hasFilters } from "./useUrlFilters";
 import { MODALITIES, UNKNOWN_MODALITY, compareModalities, modalityColor } from "./modalities";
 import { monthRange } from "./charts";
@@ -294,6 +295,7 @@ function StatTiles({ stats, total, basis }) {
 function Dashboard({ rows, names }) {
   const [filters, setFilters] = useUrlFilters(FILTERS);
   const deferred = useDeferredValue(filters);
+  useScrollToHash();
   const update = (changes) => setFilters({ ...filters, ...changes });
 
   const files = useMemo(() => prepareFiles(rows), [rows]);
@@ -402,7 +404,9 @@ function Dashboard({ rows, names }) {
 
         <section className={chartStyles.card}>
           <div className={chartStyles.header}>
-            <h3 className={chartStyles.title}>Subjects by modality</h3>
+            <SectionHeading as="h3" id="subjects-by-modality" className={chartStyles.title}>
+              Subjects by modality
+            </SectionHeading>
             <span className={chartStyles.description}>
               Subjects with data for each modality. Select a cell to browse its files.
             </span>
@@ -420,7 +424,7 @@ function Dashboard({ rows, names }) {
         />
 
         <section>
-          <h2>Datasets</h2>
+          <SectionHeading id="datasets">Datasets</SectionHeading>
           <DataTable
             columns={DATASET_COLUMNS}
             rows={datasetRows}
@@ -433,7 +437,7 @@ function Dashboard({ rows, names }) {
         </section>
 
         <section>
-          <h2>Modalities</h2>
+          <SectionHeading id="modalities">Modalities</SectionHeading>
           <DataTable
             columns={MODALITY_COLUMNS}
             rows={modalityRows}

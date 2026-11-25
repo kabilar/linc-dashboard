@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import Segmented from "./Segmented";
+import SectionHeading from "./SectionHeading";
 import { ModalityLegend, modalityColor } from "./modalities";
 import { formatBytes, formatNumber } from "./data";
 import { formatCompact, longMonth, niceStep, shortMonth, useElementWidth } from "./charts";
@@ -272,8 +273,10 @@ export default function ActivityChart({ files, basis, months, modalities }) {
   return (
     <section className={styles.card}>
       <div className={styles.header}>
-        <h3 className={styles.title}>Activity over time</h3>
-        <span className={styles.description}>Running total of the data {verb}, by modality.</span>
+        <SectionHeading as="h3" id="data-over-time" className={styles.title}>
+          {`Data ${verb} over time`}
+        </SectionHeading>
+        <span className={styles.description}>Running total by modality.</span>
         <div className={styles.toggles}>
           <Segmented
             small

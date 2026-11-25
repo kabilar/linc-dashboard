@@ -53,7 +53,9 @@ export default function useUrlFilters(schema) {
       const search = filtersToSearch(schema, filters);
       if (search !== lastSearch.current) {
         lastSearch.current = search;
-        history.replace({ search });
+        // Keep the section in the address bar, if any (Docusaurus scrolls to
+        // the top when it goes away)
+        history.replace({ pathname: history.location.pathname, search, hash: history.location.hash });
       }
     }, URL_SYNC_DELAY_MS);
     return () => clearTimeout(timeout);
