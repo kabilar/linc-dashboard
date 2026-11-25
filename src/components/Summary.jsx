@@ -67,6 +67,7 @@ const DATASET_COLUMNS = [
     key: "Name",
     label: "Name",
     className: styles.name,
+    stackHeading: true,
     render: (row) => row.Name || <span className={styles.muted}>—</span>,
   },
   listColumn("Modality"),
@@ -426,6 +427,8 @@ function Dashboard({ rows, names }) {
             rowKey={datasetId}
             initialSort={{ key: "Dataset", direction: "asc" }}
             emptyMessage="No datasets match these filters."
+            // The site's mobile layout; the table needs about 1,300px
+            stackUpTo={996}
           />
         </section>
 
@@ -436,7 +439,7 @@ function Dashboard({ rows, names }) {
             rows={modalityRows}
             rowKey={(row) => row.Modality}
             initialSort={{ key: "Modality", direction: "asc" }}
-            stackOnPhones
+            stackUpTo={640}
           />
         </section>
       </div>

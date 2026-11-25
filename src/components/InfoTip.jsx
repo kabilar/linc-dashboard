@@ -1,11 +1,24 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import styles from "./InfoTip.module.css";
 
 // An "i" button that explains something, shown on hover, keyboard focus or tap.
 export default function InfoTip({ label, children }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const tooltipRef = useRef(null);
   const id = useId();
+
+  // Shift the tooltip sideways if it would run off either edge of the screen
+  useLayoutEffect(() => {
+    const tooltip = tooltipRef.current;
+    if (!open || !tooltip) return;
+    tooltip.style.transform = "";
+    const { left, right } = tooltip.getBoundingClientRect();
+    const margin = 8;
+    const width = document.documentElement.clientWidth;
+    const shift = left < margin ? margin - left : right > width - margin ? width - margin - right : 0;
+    if (shift) tooltip.style.transform = `translateX(${shift}px)`;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -47,7 +60,7 @@ export default function InfoTip({ label, children }) {
         </svg>
       </button>
       {open && (
-        <span role="tooltip" id={id} className={styles.tooltip}>
+        <span role="tooltip" id={id} className={styles.tooltip} ref={tooltipRef}>
           {children}
         </span>
       )}

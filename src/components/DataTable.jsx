@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import clsx from "clsx";
 import { compareLabels, formatNumber } from "./data";
 import InfoTip from "./InfoTip";
@@ -28,6 +28,22 @@ export function ExpandableList({ items, limit = 12 }) {
   );
 }
 
+// Whether the screen is at most `width` px wide (never when width is unset,
+// or when rendering on the server).
+function useMaxWidth(width) {
+  const query = `(max-width: ${width}px)`;
+  return useSyncExternalStore(
+    (onChange) => {
+      if (!width) return () => {};
+      const list = window.matchMedia(query);
+      list.addEventListener("change", onChange);
+      return () => list.removeEventListener("change", onChange);
+    },
+    () => Boolean(width) && window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
 function compareValues(a, b) {
   if (typeof a === "number" && typeof b === "number") return a - b;
   return compareLabels(String(a ?? ""), String(b ?? ""));
@@ -45,11 +61,12 @@ function SortIndicator({ direction }) {
 /**
  * A sortable (and optionally paginated) table.
  *
- * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable? }]
+ * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable?, stackHeading? }]
  * A column's description is shown with an info button next to its header.
  * rowKey: (row) => unique key; rows keep their state (e.g. expanded lists) when re-sorted.
- * stackOnPhones: on narrow screens, show each row as a block of labeled lines
- * (headed by its first cell) instead of a table that scrolls sideways.
+ * stackUpTo: a screen width in px. On screens up to that wide, each row is shown
+ * as a block of labeled lines (headed by its first cell, and by any stackHeading
+ * cells, without labels) instead of a table that scrolls sideways.
  */
 export default function DataTable({
   columns,
@@ -61,8 +78,9 @@ export default function DataTable({
   pageSizeOptions = [25, 50, 100, 250],
   defaultPageSize = 50,
   emptyMessage = "No rows match.",
-  stackOnPhones = false,
+  stackUpTo = 0,
 }) {
+  const stacked = useMaxWidth(stackUpTo);
   const wrapperRef = useRef(null);
   const [sort, setSort] = useState(initialSort);
   const [pageSize, setPageSize] = useState(defaultPageSize);
@@ -105,7 +123,7 @@ export default function DataTable({
   }
 
   return (
-    <div className={clsx(styles.wrapper, stackOnPhones && styles.stacked)} ref={wrapperRef}>
+    <div className={clsx(styles.wrapper, stacked && styles.stacked)} ref={wrapperRef}>
       <div className={styles.scroller}>
         <table className={styles.table}>
           {caption && <caption className={styles.caption}>{caption}</caption>}
@@ -147,13 +165,19 @@ export default function DataTable({
               visibleRows.map((row, index) => (
                 <tr key={rowKey(row) ?? start + index}>
                   {columns.map((column) => {
+                    // A stacked block leaves out an empty heading line
+                    if (stacked && column.stackHeading && (row[column.key] ?? "") === "") return null;
                     const content = column.render ? column.render(row) : row[column.key];
                     return (
                       <td
                         key={column.key}
-                        className={clsx(column.align === "right" && styles.alignRight, column.className)}
-                        data-label={stackOnPhones ? (typeof column.label === "string" ? column.label : column.key) : undefined}>
-                        {stackOnPhones ? <span className={styles.cellValue}>{content}</span> : content}
+                        className={clsx(
+                          column.align === "right" && styles.alignRight,
+                          column.stackHeading && styles.stackHeading,
+                          column.className,
+                        )}
+                        data-label={stacked ? (typeof column.label === "string" ? column.label : column.key) : undefined}>
+                        {stacked ? <span className={styles.cellValue}>{content}</span> : content}
                       </td>
                     );
                   })}
