@@ -1,0 +1,46 @@
+name: Deploy preview
+
+# Builds the site for this repository's GitHub Pages address
+# (https://<owner>.github.io/<repository>/) on every push and publishes it to
+# the gh-pages branch, so that changes can be previewed from a fork.
+# Requires Settings > Pages > "Deploy from a branch" with the gh-pages branch.
+# Does not run in lincbrain/linc-dashboard, whose site is deployed to
+# dashboard.lincbrain.org by deploy.yml.
+
+on:
+  push:
+    branches-ignore:
+      - gh-pages
+  workflow_dispatch:
+
+# Only the latest push is deployed
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Build and deploy preview
+    if: github.repository_owner != 'lincbrain'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build website
+        env:
+          SITE_URL: https://${{ github.repository_owner }}.github.io
+          BASE_URL: /${{ github.event.repository.name }}/
+        run: npm run build
+      - name: Deploy to the gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4.7.3
+        with:
+          folder: build
+          branch: gh-pages
+          commit-message: Deploy preview of ${{ github.repository }}@${{ github.sha }} (${{ github.ref_name }})
