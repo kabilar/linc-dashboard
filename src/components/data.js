@@ -93,6 +93,11 @@ export function formatDecimal(value) {
 export const PRODUCED_DESCRIPTION = "The file's last-modified date when it was uploaded, in UTC.";
 export const UPLOADED_DESCRIPTION = "The date the file was uploaded to the archive, in UTC.";
 export const UPLOAD_RANGE_DESCRIPTION = "The first and last dates files were uploaded to the archive, in UTC.";
+export const BIDS_DESCRIPTION =
+  "Whether the file's path follows the BIDS specification: its folders, entities, suffix and extension, " +
+  "checked against the BIDS schema. Files in derivatives/, sourcedata/ and code/, dot files and files " +
+  "listed in .bidsignore are not validated.";
+export const BIDS_STATUSES = ["Valid", "Invalid", "Not validated"];
 
 // Decimal (SI) units, consistent with `Size (GB)` in extract_metadata.py.
 const BYTE_UNITS = ["B", "kB", "MB", "GB", "TB", "PB"];

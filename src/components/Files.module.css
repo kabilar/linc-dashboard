@@ -100,3 +100,21 @@
   color: #6b4e00;
   font-size: 0.75rem;
 }
+
+.bids {
+  min-width: 9rem;
+}
+
+.invalid {
+  font-weight: 600;
+}
+
+.bidsIssue {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.muted {
+  color: var(--ifm-color-emphasis-600);
+}

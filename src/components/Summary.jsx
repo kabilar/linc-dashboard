@@ -23,6 +23,8 @@ import {
   datasetUrl,
   UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
+
+const INVALID_BIDS = "Invalid";
 import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
 import chartStyles from "./Charts.module.css";
@@ -90,6 +92,20 @@ const DATASET_COLUMNS = [
       );
     },
   },
+  {
+    key: "Invalid BIDS",
+    label: "Invalid BIDS",
+    description: "The number of the dataset's files whose paths do not follow the BIDS specification.",
+    align: "right",
+    render: (row) =>
+      row["Invalid BIDS"] > 0 ? (
+        <Link to={`/files?${new URLSearchParams({ dataset: datasetId(row), bids: INVALID_BIDS })}`}>
+          {formatNumber(row["Invalid BIDS"])}
+        </Link>
+      ) : (
+        "0"
+      ),
+  },
 ];
 
 const MODALITY_COLUMNS = [
@@ -113,6 +129,7 @@ function prepareFiles(rows) {
       Produced: row.Produced || "",
       Uploaded: row.Uploaded || "",
       Note: row.Note || "",
+      BIDS: row.BIDS || "",
     };
   });
 }
@@ -175,6 +192,7 @@ function summarizeDatasets(files, names) {
         Archive: file.Archive,
         Dataset: file.Dataset,
         bytes: 0,
+        invalidBids: 0,
         modalities: new Set(),
         subjects: new Set(),
         extensions: new Set(),
@@ -184,6 +202,7 @@ function summarizeDatasets(files, names) {
       groups.set(file.DatasetId, group);
     }
     group.bytes += file.size;
+    if (file.BIDS === INVALID_BIDS) group.invalidBids += 1;
     group.modalities.add(file.Modality);
     group.subjects.add(file.Subject);
     if (file.Extension) group.extensions.add(file.Extension);
@@ -202,6 +221,7 @@ function summarizeDatasets(files, names) {
     Extension: [...group.extensions].join(","),
     "First uploaded": group.first,
     "Last uploaded": group.last,
+    "Invalid BIDS": group.invalidBids,
   }));
 }
 
@@ -217,12 +237,22 @@ function summarizeModalities(files, modalities) {
   });
 }
 
-// Notes about files that need attention, e.g. "Needs renaming: add the _SPIM suffix"
+// Notes about files that need attention, e.g. "Needs renaming: add the _SPIM suffix",
+// and the number of files that are not valid BIDS
 function FileNotes({ files }) {
   const counts = useMemo(() => countBy(files.filter((file) => file.Note), "Note"), [files]);
-  if (counts.size === 0) return null;
+  const invalidBids = useMemo(() => files.filter((file) => file.BIDS === INVALID_BIDS).length, [files]);
+  if (counts.size === 0 && invalidBids === 0) return null;
   return (
     <div className={styles.notes} role="note">
+      {invalidBids > 0 && (
+        <p>
+          <strong>
+            {formatNumber(invalidBids)} {invalidBids === 1 ? "file" : "files"}
+          </strong>{" "}
+          · Not valid BIDS. <Link to={`/files?${new URLSearchParams({ bids: INVALID_BIDS })}`}>View files</Link>
+        </p>
+      )}
       {[...counts].map(([note, count]) => (
         <p key={note}>
           <strong>

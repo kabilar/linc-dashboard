@@ -18,6 +18,8 @@ import {
   assetFolderUrl,
   PRODUCED_DESCRIPTION,
   UPLOADED_DESCRIPTION,
+  BIDS_DESCRIPTION,
+  BIDS_STATUSES,
 } from "./data";
 import styles from "./Files.module.css";
 
@@ -50,6 +52,11 @@ const FILTERS = [
   { key: "Extension", param: "extension" },
   // e.g. "Needs renaming: add the _SPIM suffix"
   { key: "Note", param: "note" },
+  {
+    key: "BIDS",
+    param: "bids",
+    compare: (a, b) => BIDS_STATUSES.indexOf(a) - BIDS_STATUSES.indexOf(b),
+  },
 ];
 
 // All filters, including the search box, with their URL query parameters
@@ -107,6 +114,23 @@ const COLUMNS = [
     description: UPLOADED_DESCRIPTION,
     className: styles.nowrap,
     render: (row) => row.Uploaded || "—",
+  },
+  {
+    key: "BIDS",
+    label: "BIDS",
+    description: BIDS_DESCRIPTION,
+    className: styles.bids,
+    render: (row) =>
+      row.BIDS === "Invalid" ? (
+        <>
+          <span className={styles.invalid}>Invalid</span>
+          {row["BIDS issue"] && <span className={styles.bidsIssue}>{row["BIDS issue"]}</span>}
+        </>
+      ) : row.BIDS === "Valid" ? (
+        "Valid"
+      ) : (
+        <span className={styles.muted}>{row.BIDS === NONE ? "—" : row.BIDS}</span>
+      ),
   },
 ];
 
