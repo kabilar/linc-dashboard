@@ -8,6 +8,11 @@ const url = process.env.SITE_URL || PRODUCTION_URL;
 const baseUrl = process.env.BASE_URL || '/';
 const isProduction = url === PRODUCTION_URL;
 
+// The site is rebuilt after every data refresh and code change, so the time
+// of the build is when it was last updated.
+const builtAt = new Date();
+const builtOn = builtAt.toLocaleDateString('en-US', {dateStyle: 'long', timeZone: 'UTC'});
+
 const config = {
   title: 'LINC Dashboard',
   staticDirectories: ['static'],
@@ -75,7 +80,7 @@ const config = {
             href: 'https://github.com/lincbrain/linc-dashboard',
           },
         ],
-        copyright: `© ${new Date().getFullYear()} LINC`,
+        copyright: `<span>Last updated <time datetime="${builtAt.toISOString()}">${builtOn}</time></span> · <span>© ${builtAt.getUTCFullYear()} LINC</span>`,
       },
       colorMode: {
         defaultMode: 'light',

@@ -137,6 +137,15 @@
   color: var(--ifm-color-emphasis-700);
 }
 
+/* On narrow screens, wrap between "Last updated …" and "© …", not inside them */
+.footer__bottom {
+  text-align: left;
+}
+
+.footer__copyright span {
+  white-space: nowrap;
+}
+
 /* Page styling */
 /* Full width of the page column (95vw minus its padding), so that the
    content does not overflow the viewport on small screens. */
