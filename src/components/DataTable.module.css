@@ -201,3 +201,88 @@
   background-size: 0.7rem;
   cursor: pointer;
 }
+
+/* Phones (stackOnPhones): each row is a block headed by its first cell, with
+   the other cells as labeled lines; the header row stays as sort buttons. */
+@media (max-width: 640px) {
+  .stacked .table,
+  .stacked .table thead,
+  .stacked .table tbody,
+  .stacked .table tbody tr,
+  .stacked .table tbody td {
+    display: block;
+  }
+
+  .stacked .table thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--ifm-color-emphasis-100);
+    border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  }
+
+  .stacked .table thead tr::before {
+    content: "Sort by";
+    font-weight: normal;
+    color: var(--ifm-color-emphasis-700);
+  }
+
+  .stacked .table thead th {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .stacked .alignRight .header,
+  .stacked .alignRight .sortButton {
+    flex-direction: row;
+  }
+
+  .stacked .table tbody tr {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .stacked .table tbody tr + tr {
+    border-top: 1px solid var(--ifm-color-emphasis-200);
+  }
+
+  .stacked .table tbody td {
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .stacked .table tbody td:first-child {
+    margin-bottom: 0.2rem;
+    font-weight: 600;
+  }
+
+  .stacked .table tbody td:not(:first-child) {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.15rem;
+  }
+
+  .stacked .table tbody td:not(:first-child)::before {
+    content: attr(data-label);
+    flex: none;
+    width: 5.5rem;
+    color: var(--ifm-color-emphasis-700);
+  }
+
+  .stacked .cellValue {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .stacked .list {
+    min-width: 0;
+  }
+
+  .stacked .table td.empty {
+    font-weight: normal;
+  }
+}

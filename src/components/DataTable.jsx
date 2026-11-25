@@ -48,6 +48,8 @@ function SortIndicator({ direction }) {
  * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable? }]
  * A column's description is shown with an info button next to its header.
  * rowKey: (row) => unique key; rows keep their state (e.g. expanded lists) when re-sorted.
+ * stackOnPhones: on narrow screens, show each row as a block of labeled lines
+ * (headed by its first cell) instead of a table that scrolls sideways.
  */
 export default function DataTable({
   columns,
@@ -59,6 +61,7 @@ export default function DataTable({
   pageSizeOptions = [25, 50, 100, 250],
   defaultPageSize = 50,
   emptyMessage = "No rows match.",
+  stackOnPhones = false,
 }) {
   const wrapperRef = useRef(null);
   const [sort, setSort] = useState(initialSort);
@@ -102,7 +105,7 @@ export default function DataTable({
   }
 
   return (
-    <div className={styles.wrapper} ref={wrapperRef}>
+    <div className={clsx(styles.wrapper, stackOnPhones && styles.stacked)} ref={wrapperRef}>
       <div className={styles.scroller}>
         <table className={styles.table}>
           {caption && <caption className={styles.caption}>{caption}</caption>}
@@ -143,13 +146,17 @@ export default function DataTable({
             ) : (
               visibleRows.map((row, index) => (
                 <tr key={rowKey(row) ?? start + index}>
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={clsx(column.align === "right" && styles.alignRight, column.className)}>
-                      {column.render ? column.render(row) : row[column.key]}
-                    </td>
-                  ))}
+                  {columns.map((column) => {
+                    const content = column.render ? column.render(row) : row[column.key];
+                    return (
+                      <td
+                        key={column.key}
+                        className={clsx(column.align === "right" && styles.alignRight, column.className)}
+                        data-label={stackOnPhones ? (typeof column.label === "string" ? column.label : column.key) : undefined}>
+                        {stackOnPhones ? <span className={styles.cellValue}>{content}</span> : content}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             )}

@@ -436,6 +436,7 @@ function Dashboard({ rows, names }) {
             rows={modalityRows}
             rowKey={(row) => row.Modality}
             initialSort={{ key: "Modality", direction: "asc" }}
+            stackOnPhones
           />
         </section>
       </div>
