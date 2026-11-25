@@ -130,7 +130,6 @@ function prepareFiles(rows) {
       size: toNumber(row["Size (bytes)"]),
       Produced: row.Produced || "",
       Uploaded: row.Uploaded || "",
-      Note: row.Note || "",
       BIDS: row.BIDS || "",
     };
   });
@@ -170,12 +169,6 @@ function sizeBy(files, key) {
   const sizes = new Map();
   for (const file of files) sizes.set(file[key], (sizes.get(file[key]) ?? 0) + file.size);
   return sizes;
-}
-
-function countBy(files, key) {
-  const counts = new Map();
-  for (const file of files) counts.set(file[key], (counts.get(file[key]) ?? 0) + 1);
-  return counts;
 }
 
 function summarize(files, basis) {
@@ -244,34 +237,6 @@ function summarizeModalities(files, modalities) {
       Extension: [...new Set(matching.map((file) => file.Extension).filter(Boolean))].join(","),
     };
   });
-}
-
-// Notes about files that need attention, e.g. "Needs renaming: add the _SPIM suffix",
-// and the number of files that are not valid BIDS
-function FileNotes({ files }) {
-  const counts = useMemo(() => countBy(files.filter((file) => file.Note), "Note"), [files]);
-  const invalidBids = useMemo(() => files.filter((file) => file.BIDS === INVALID_BIDS).length, [files]);
-  if (counts.size === 0 && invalidBids === 0) return null;
-  return (
-    <div className={styles.notes} role="note">
-      {invalidBids > 0 && (
-        <p>
-          <strong>
-            {formatNumber(invalidBids)} {invalidBids === 1 ? "file" : "files"}
-          </strong>{" "}
-          · Not valid BIDS. <Link to={`/files?${new URLSearchParams({ bids: INVALID_BIDS })}`}>View files</Link>
-        </p>
-      )}
-      {[...counts].map(([note, count]) => (
-        <p key={note}>
-          <strong>
-            {formatNumber(count)} {count === 1 ? "file" : "files"}
-          </strong>{" "}
-          · {note}. <Link to={`/files?${new URLSearchParams({ note })}`}>View files</Link>
-        </p>
-      ))}
-    </div>
-  );
 }
 
 function StatTiles({ stats, total, basis }) {
@@ -407,7 +372,6 @@ function Dashboard({ rows, names }) {
 
       <div className={isStale ? styles.stale : undefined}>
         <StatTiles stats={stats} total={files.length} basis={basis} />
-        <FileNotes files={filtered} />
 
         <section className={chartStyles.card}>
           <div className={chartStyles.header}>

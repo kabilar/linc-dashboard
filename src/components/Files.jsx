@@ -25,6 +25,7 @@ import styles from "./Files.module.css";
 
 const ASSETS_CSV = "lincbrain_assets.csv";
 const NONE = "(none)";
+const INVALID_BIDS = "Invalid";
 
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 
@@ -251,6 +252,8 @@ function FilesTable({ rows, csvUrl }) {
         )}
       </div>
 
+      <FileNotes files={filteredFiles} filters={deferredFilters} onShow={changeFilter} />
+
       <div className={styles.status}>
         <span role="status">
           {isFiltered
@@ -267,6 +270,44 @@ function FilesTable({ rows, csvUrl }) {
         <DataTable columns={COLUMNS} rows={filteredFiles} paginate defaultPageSize={50} emptyMessage="No files match these filters." />
       </div>
     </>
+  );
+}
+
+// Files that need attention among those shown: not valid BIDS, or with a note
+// such as "Needs renaming: add the _SPIM suffix". Each line can filter to them.
+function FileNotes({ files, filters, onShow }) {
+  const { invalidBids, notes } = useMemo(() => {
+    let invalid = 0;
+    const counts = new Map();
+    for (const file of files) {
+      if (file.BIDS === INVALID_BIDS) invalid += 1;
+      if (file.Note !== NONE) counts.set(file.Note, (counts.get(file.Note) ?? 0) + 1);
+    }
+    return { invalidBids: invalid, notes: [...counts].sort(([a], [b]) => compareLabels(a, b)) };
+  }, [files]);
+
+  // Leave out the lines whose filter is already applied
+  const lines = [
+    ...(invalidBids > 0 && filters.BIDS !== INVALID_BIDS
+      ? [{ key: "BIDS", value: INVALID_BIDS, count: invalidBids, text: "Not valid BIDS" }]
+      : []),
+    ...notes.filter(([note]) => filters.Note !== note).map(([note, count]) => ({ key: "Note", value: note, count, text: note })),
+  ];
+  if (lines.length === 0) return null;
+  return (
+    <div className={styles.notes} role="note">
+      {lines.map(({ key, value, count, text }) => (
+        <p key={`${key}:${value}`}>
+          <strong>
+            {formatNumber(count)} {count === 1 ? "file" : "files"}
+          </strong>{" "}
+          · {text}.{" "}
+          <button type="button" className={styles.noteAction} onClick={() => onShow(key, value)}>
+            Show {count === 1 ? "it" : "them"}
+          </button>
+        </p>
+      ))}
+    </div>
   );
 }
 
