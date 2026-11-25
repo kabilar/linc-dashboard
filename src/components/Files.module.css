@@ -88,3 +88,15 @@
 .nowrap {
   white-space: nowrap;
 }
+
+/* A note about a file, e.g. that it needs renaming */
+.note {
+  display: block;
+  width: fit-content;
+  margin-top: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 4px;
+  background-color: #fdf3d7;
+  color: #6b4e00;
+  font-size: 0.75rem;
+}

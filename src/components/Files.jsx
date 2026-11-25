@@ -48,6 +48,8 @@ const FILTERS = [
   { key: "Subject", param: "subject" },
   { key: "Modality", param: "modality", multi: true, compare: compareModalities, color: modalityColor },
   { key: "Extension", param: "extension" },
+  // e.g. "Needs renaming: add the _SPIM suffix"
+  { key: "Note", param: "note" },
 ];
 
 // All filters, including the search box, with their URL query parameters
@@ -77,9 +79,12 @@ const COLUMNS = [
     label: "Path",
     className: styles.path,
     render: (row) => (
-      <Link to={assetFolderUrl(row)} title={`Open the folder on ${ARCHIVES[row.Archive]?.host ?? "its archive"}`}>
-        {row.Path}
-      </Link>
+      <>
+        <Link to={assetFolderUrl(row)} title={`Open the folder on ${ARCHIVES[row.Archive]?.host ?? "its archive"}`}>
+          {row.Path}
+        </Link>
+        {row.Note !== NONE && <span className={styles.note}>{row.Note}</span>}
+      </>
     ),
   },
   { key: "Extension", label: "Extension" },

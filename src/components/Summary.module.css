@@ -48,3 +48,22 @@
   opacity: 0.6;
   transition: opacity 0.15s ease 0.1s;
 }
+
+/* Notes about files that need attention */
+.notes {
+  margin: -0.25rem 0 1.25rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #f0dfa8;
+  border-radius: 8px;
+  background-color: #fdf8e6;
+  color: #5b4500;
+  font-size: 0.875rem;
+}
+
+.notes p {
+  margin: 0;
+}
+
+.notes p + p {
+  margin-top: 0.25rem;
+}

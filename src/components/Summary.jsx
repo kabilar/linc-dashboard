@@ -112,6 +112,7 @@ function prepareFiles(rows) {
       size: toNumber(row["Size (bytes)"]),
       Produced: row.Produced || "",
       Uploaded: row.Uploaded || "",
+      Note: row.Note || "",
     };
   });
 }
@@ -214,6 +215,24 @@ function summarizeModalities(files, modalities) {
       Extension: [...new Set(matching.map((file) => file.Extension).filter(Boolean))].join(","),
     };
   });
+}
+
+// Notes about files that need attention, e.g. "Needs renaming: add the _SPIM suffix"
+function FileNotes({ files }) {
+  const counts = useMemo(() => countBy(files.filter((file) => file.Note), "Note"), [files]);
+  if (counts.size === 0) return null;
+  return (
+    <div className={styles.notes} role="note">
+      {[...counts].map(([note, count]) => (
+        <p key={note}>
+          <strong>
+            {formatNumber(count)} {count === 1 ? "file" : "files"}
+          </strong>{" "}
+          · {note}. <Link to={`/files?${new URLSearchParams({ note })}`}>View files</Link>
+        </p>
+      ))}
+    </div>
+  );
 }
 
 function StatTiles({ stats, total, basis }) {
@@ -348,6 +367,7 @@ function Dashboard({ rows, names }) {
 
       <div className={isStale ? styles.stale : undefined}>
         <StatTiles stats={stats} total={files.length} basis={basis} />
+        <FileNotes files={filtered} />
 
         <section className={chartStyles.card}>
           <div className={chartStyles.header}>
