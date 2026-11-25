@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from "react";
-import DataTable from "./DataTable";
 import Segmented from "./Segmented";
 import { ModalityLegend, modalityColor } from "./modalities";
 import { formatBytes, formatNumber } from "./data";
@@ -34,7 +33,6 @@ function linePath(points) {
  */
 export default function ActivityChart({ files, basis, months, modalities }) {
   const [metric, setMetric] = useState("size");
-  const [view, setView] = useState("chart");
   const [active, setActive] = useState(null);
   const plotRef = useRef(null);
   const width = useElementWidth(plotRef);
@@ -76,27 +74,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
   const totals = months.map((_, i) => shown.reduce((sum, modality) => sum + running[modality][i], 0));
   const added = months.map((month) => shown.reduce((sum, modality) => sum + valueOf(month, modality), 0));
   const verb = basis.toLowerCase();
-
-  const tableColumns = [
-    { key: "month", label: "By the end of", render: (row) => longMonth(row.month) },
-    ...shown.map((modality) => ({
-      key: modality,
-      label: modality,
-      align: "right",
-      render: (row) => (row[modality] ? format(row[modality]) : "—"),
-    })),
-    { key: "total", label: "Total", align: "right", render: (row) => format(row.total) },
-    { key: "added", label: "Added that month", align: "right", render: (row) => format(row.added) },
-  ];
-  const tableRows = months
-    .map((month, index) => ({
-      id: month,
-      month,
-      total: totals[index],
-      added: added[index],
-      ...Object.fromEntries(shown.map((modality) => [modality, running[modality][index]])),
-    }))
-    .filter((row) => row.total > 0);
 
   let chart = null;
   if (width > 0 && shown.length > 0) {
@@ -308,26 +285,14 @@ export default function ActivityChart({ files, basis, months, modalities }) {
               { value: "files", label: "Files" },
             ]}
           />
-          <Segmented
-            small
-            label="View"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "chart", label: "Chart" },
-              { value: "table", label: "Table" },
-            ]}
-          />
         </div>
       </div>
 
-      {view === "chart" && shown.length > 0 && <ModalityLegend names={shown} className={styles.legend} />}
-      {/* Always mounted, so that its width is known when switching views. */}
+      {shown.length > 0 && <ModalityLegend names={shown} className={styles.legend} />}
+      {/* Always mounted, so that its width is known before the chart is drawn */}
       <div className={styles.plot} ref={plotRef} onPointerLeave={() => setActive(null)}>
         {shown.length === 0 ? (
           <div className={styles.empty}>No dated files match these filters.</div>
-        ) : view === "table" ? (
-          <DataTable columns={tableColumns} rows={tableRows} />
         ) : (
           chart
         )}
