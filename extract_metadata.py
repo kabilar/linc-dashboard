@@ -18,6 +18,14 @@ modalities = {'oct': 'PS-OCT',
               'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
 
+# Folders whose files lack the BIDS suffix of their modality in their names.
+# Their files of unknown modality get the folder's modality and a note that
+# they need to be renamed.
+MISSING_SUFFIX = [
+    # (archive, dataset, folder, modality, BIDS suffix)
+    ('DANDI', '001412', 'rawdata/sub-MF284/strips_raw/', 'Light-sheet microscopy', 'SPIM'),
+]
+
 # Archives to index, keyed by the prefix of their dataset identifiers
 # (e.g. LINC:000003, DANDI:001412). `token_env` names the environment variable
 # that holds the API key for each archive.
@@ -241,6 +249,16 @@ def parse_modality(path):
     return next((value for key, value in modalities.items() if key in filename), 'Unknown')
 
 
+def classify(archive, dataset, path):
+    """Return the modality of a file, and a note if the file needs attention."""
+    modality = parse_modality(path)
+    if modality == 'Unknown':
+        for folder_archive, folder_dataset, folder, folder_modality, suffix in MISSING_SUFFIX:
+            if (archive, dataset) == (folder_archive, folder_dataset) and path.startswith(folder):
+                return folder_modality, f'Needs renaming: add the _{suffix} suffix'
+    return modality, ''
+
+
 def parse_extension(path):
     if path.lower().endswith('.ome.zarr'):
         return OME_ZARR  # the version is added by add_ome_zarr_versions
@@ -315,12 +333,13 @@ def extract_assets(archive, client, config, cache=None):
 
         for asset in assets:
             metadata = asset_metadata(client, identifier, asset)
+            modality, note = classify(archive, identifier, asset['path'])
             latest_assets.append({
                 "Archive": archive,
                 "Dataset": identifier,
                 "Version": VERSION,
                 "Subject": parse_subject(asset['path']),
-                "Modality": parse_modality(asset['path']),
+                "Modality": modality,
                 "Size (bytes)": asset['size'],
                 "Path": asset['path'],
                 "Extension": parse_extension(asset['path']),
@@ -328,6 +347,8 @@ def extract_assets(archive, client, config, cache=None):
                 "Produced": to_utc_date(metadata.get('blobDateModified')),
                 # Upload time (set by dandi-cli); `created` changes when an asset is moved
                 "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
+                # e.g. "Needs renaming: add the _SPIM suffix"
+                "Note": note,
                 "_zarr": asset.get('zarr'),
                 "_storage": storage_url(metadata),
             })
