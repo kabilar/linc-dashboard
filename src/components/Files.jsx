@@ -1,8 +1,10 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo } from "react";
 import Link from "@docusaurus/Link";
-import { useHistory, useLocation } from "@docusaurus/router";
 import DataTable from "./DataTable";
 import LoadingState from "./LoadingState";
+import MultiSelect from "./MultiSelect";
+import useUrlFilters, { emptyFilters, hasFilters } from "./useUrlFilters";
+import { compareModalities, modalityColor } from "./modalities";
 import {
   useCsv,
   toNumber,
@@ -25,8 +27,8 @@ const NONE = "(none)";
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 
 // Dropdown filters, in display order. `key` is the field of each file,
-// `param` the URL query parameter, `format` the option text, and `compare`
-// the option order.
+// `param` the URL query parameter, `multi` whether several values can be
+// chosen, `format` the option text, and `compare` the option order.
 const FILTERS = [
   {
     key: "Archive",
@@ -44,13 +46,15 @@ const FILTERS = [
     visible: (option, filters) => !filters.Archive || splitId(option).Archive === filters.Archive,
   },
   { key: "Subject", param: "subject" },
-  { key: "Modality", param: "modality" },
+  { key: "Modality", param: "modality", multi: true, compare: compareModalities, color: modalityColor },
   { key: "Extension", param: "extension" },
 ];
-const SEARCH_PARAM = "q";
-// Delay before mirroring the filters in the URL, so that typing in the search
-// box does not create a new history entry or analytics page view per keystroke.
-const URL_SYNC_DELAY_MS = 500;
+
+// All filters, including the search box, with their URL query parameters
+const FILTER_SCHEMA = {
+  ...Object.fromEntries(FILTERS.map(({ key, param, multi }) => [key, { param, multi }])),
+  Query: { param: "q" },
+};
 
 // "DANDI:001412" -> { Archive: "DANDI", Dataset: "001412" }
 function splitId(id) {
@@ -101,54 +105,10 @@ const COLUMNS = [
   },
 ];
 
-function readUrl(search) {
-  const params = new URLSearchParams(search);
-  return {
-    filters: Object.fromEntries(FILTERS.map(({ key, param }) => [key, params.get(param) ?? ""])),
-    query: params.get(SEARCH_PARAM) ?? "",
-  };
-}
-
-function writeUrl(filters, query) {
-  const params = new URLSearchParams();
-  for (const { key, param } of FILTERS) {
-    if (filters[key]) params.set(param, filters[key]);
-  }
-  if (query.trim()) params.set(SEARCH_PARAM, query.trim());
-  const search = params.toString();
-  return search ? `?${search}` : "";
-}
-
 function FilesTable({ rows, csvUrl }) {
-  const location = useLocation();
-  const history = useHistory();
-  const [filters, setFilters] = useState(() => readUrl(location.search).filters);
-  const [query, setQuery] = useState(() => readUrl(location.search).query);
+  const [filters, setFilters] = useUrlFilters(FILTER_SCHEMA);
   const deferredFilters = useDeferredValue(filters);
-  const deferredQuery = useDeferredValue(query.trim().toLowerCase());
-
-  // Keep the URL in sync so that filtered views can be shared and bookmarked.
-  const lastSearch = useRef(location.search);
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const search = writeUrl(filters, query);
-      if (search !== lastSearch.current) {
-        lastSearch.current = search;
-        history.replace({ search });
-      }
-    }, URL_SYNC_DELAY_MS);
-    return () => clearTimeout(timeout);
-  }, [filters, query, history]);
-
-  // Follow URL changes made elsewhere (e.g. the "All Files" navbar link).
-  useEffect(() => {
-    if (location.search !== lastSearch.current) {
-      lastSearch.current = location.search;
-      const state = readUrl(location.search);
-      setFilters(state.filters);
-      setQuery(state.query);
-    }
-  }, [location.search]);
+  const deferredQuery = deferredFilters.Query.trim().toLowerCase();
 
   const files = useMemo(
     () =>
@@ -182,15 +142,18 @@ function FilesTable({ rows, csvUrl }) {
     () =>
       files.filter(
         (file) =>
-          FILTERS.every(({ key }) => !deferredFilters[key] || file[key] === deferredFilters[key]) &&
+          FILTERS.every(({ key, multi }) => {
+            const value = deferredFilters[key];
+            return multi ? !value.length || value.includes(file[key]) : !value || file[key] === value;
+          }) &&
           (!deferredQuery || file.searchText.includes(deferredQuery)),
       ),
     [files, deferredFilters, deferredQuery],
   );
 
   const totalSize = useMemo(() => filteredFiles.reduce((sum, file) => sum + file.size, 0), [filteredFiles]);
-  const isFiltered = query.trim() !== "" || FILTERS.some(({ key }) => filters[key]);
-  const isStale = deferredFilters !== filters || deferredQuery !== query.trim().toLowerCase();
+  const isFiltered = hasFilters(FILTER_SCHEMA, filters);
+  const isStale = deferredFilters !== filters;
 
   function changeFilter(key, value) {
     const next = { ...filters, [key]: value };
@@ -202,8 +165,7 @@ function FilesTable({ rows, csvUrl }) {
   }
 
   function clearFilters() {
-    setFilters(Object.fromEntries(FILTERS.map(({ key }) => [key, ""])));
-    setQuery("");
+    setFilters(emptyFilters(FILTER_SCHEMA));
   }
 
   return (
@@ -213,13 +175,29 @@ function FilesTable({ rows, csvUrl }) {
           <span>Search</span>
           <input
             type="search"
-            value={query}
+            value={filters.Query}
             placeholder="Path, dataset, subject, modality…"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => setFilters({ ...filters, Query: event.target.value })}
           />
         </label>
-        {FILTERS.map(({ key, label = key, format = (option) => option, visible = () => true }) => {
+        {FILTERS.map(({ key, label = key, multi, color, format = (option) => option, visible = () => true }) => {
           const value = filters[key];
+          if (multi) {
+            return (
+              <MultiSelect
+                key={key}
+                label={label}
+                selected={value}
+                onChange={(selected) => changeFilter(key, selected)}
+                options={options[key].map(([option, count]) => ({
+                  value: option,
+                  label: format(option),
+                  count,
+                  color: color?.(option),
+                }))}
+              />
+            );
+          }
           const choices = options[key].filter(([option]) => option === value || visible(option, filters));
           const known = choices.some(([option]) => option === value);
           return (

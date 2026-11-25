@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import { compareLabels, splitList } from "./data";
+import { compareModalities } from "./modalities";
 import styles from "./ModalityHeatmap.module.css";
 
 // Dataset-level files (e.g. participants.tsv) are not tied to a subject.
@@ -24,7 +25,7 @@ export default function ModalityHeatmap({ rows }) {
         name: row.Modality,
         subjects: new Set(splitList(row.Subject).filter((subject) => subject !== NOT_A_SUBJECT)),
       }))
-      .sort((a, b) => compareLabels(a.name, b.name));
+      .sort((a, b) => compareModalities(a.name, b.name));
     const subjects = [...new Set(modalities.flatMap((modality) => [...modality.subjects]))].sort(compareLabels);
     return { modalities, subjects };
   }, [rows]);
