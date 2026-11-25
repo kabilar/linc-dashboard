@@ -156,13 +156,13 @@ function FilesTable({ rows, csvUrl }) {
     [rows],
   );
 
-  // Options for each dropdown, with the number of files for each value.
+  // Options for each dropdown, with the size of the data for each value.
   const options = useMemo(() => {
     const result = {};
     for (const { key, compare = compareLabels } of FILTERS) {
-      const counts = new Map();
-      for (const file of files) counts.set(file[key], (counts.get(file[key]) ?? 0) + 1);
-      result[key] = [...counts].sort(([a], [b]) => compare(a, b));
+      const sizes = new Map();
+      for (const file of files) sizes.set(file[key], (sizes.get(file[key]) ?? 0) + file.size);
+      result[key] = [...sizes].sort(([a], [b]) => compare(a, b));
     }
     return result;
   }, [files]);
@@ -218,10 +218,10 @@ function FilesTable({ rows, csvUrl }) {
                 label={label}
                 selected={value}
                 onChange={(selected) => changeFilter(key, selected)}
-                options={options[key].map(([option, count]) => ({
+                options={options[key].map(([option, size]) => ({
                   value: option,
                   label: format(option),
-                  count,
+                  detail: formatBytes(size),
                   color: color?.(option),
                 }))}
               />
@@ -234,10 +234,10 @@ function FilesTable({ rows, csvUrl }) {
               <span>{label}</span>
               <select value={value} onChange={(event) => changeFilter(key, event.target.value)}>
                 <option value="">All</option>
-                {value && !known && <option value={value}>{format(value)} (0)</option>}
-                {choices.map(([option, count]) => (
+                {value && !known && <option value={value}>{format(value)} (0 B)</option>}
+                {choices.map(([option, size]) => (
                   <option key={option} value={option}>
-                    {format(option)} ({formatNumber(count)})
+                    {format(option)} ({formatBytes(size)})
                   </option>
                 ))}
               </select>

@@ -165,6 +165,13 @@ function monthsOf(files, basis, from, to) {
   return first && last && first <= last ? monthRange(first, last) : [];
 }
 
+// Total size in bytes of the files with each value of `key`
+function sizeBy(files, key) {
+  const sizes = new Map();
+  for (const file of files) sizes.set(file[key], (sizes.get(file[key]) ?? 0) + file.size);
+  return sizes;
+}
+
 function countBy(files, key) {
   const counts = new Map();
   for (const file of files) counts.set(file[key], (counts.get(file[key]) ?? 0) + 1);
@@ -302,12 +309,12 @@ function Dashboard({ rows, names }) {
   const basis = deferred.Dates === "uploaded" ? "Uploaded" : "Produced";
   const selectedBasis = filters.Dates === "uploaded" ? "Uploaded" : "Produced";
 
-  // Options for the filters, with the number of files for each value
-  const modalityCounts = useMemo(() => countBy(files, "Modality"), [files]);
-  const archiveCounts = useMemo(() => countBy(files, "Archive"), [files]);
+  // Options for the filters, with the size of the data for each value
+  const modalitySizes = useMemo(() => sizeBy(files, "Modality"), [files]);
+  const archiveSizes = useMemo(() => sizeBy(files, "Archive"), [files]);
   const allModalities = useMemo(
-    () => [...new Set([...MODALITIES.map((m) => m.name), ...modalityCounts.keys()])].sort(compareModalities),
-    [modalityCounts],
+    () => [...new Set([...MODALITIES.map((m) => m.name), ...modalitySizes.keys()])].sort(compareModalities),
+    [modalitySizes],
   );
   const monthOptions = useMemo(
     () => [...new Set(files.map((file) => file[selectedBasis].slice(0, 7)).filter(Boolean))].sort(),
@@ -343,7 +350,7 @@ function Dashboard({ rows, names }) {
           options={allModalities.map((name) => ({
             value: name,
             color: modalityColor(name),
-            count: modalityCounts.get(name) ?? 0,
+            detail: formatBytes(modalitySizes.get(name) ?? 0),
           }))}
         />
         <label className={filterStyles.filter}>
@@ -352,7 +359,7 @@ function Dashboard({ rows, names }) {
             <option value="">All archives</option>
             {Object.entries(ARCHIVES).map(([archive, { host }]) => (
               <option key={archive} value={archive}>
-                {host} ({formatNumber(archiveCounts.get(archive) ?? 0)})
+                {host} ({formatBytes(archiveSizes.get(archive) ?? 0)})
               </option>
             ))}
           </select>

@@ -120,7 +120,7 @@
   flex: 1;
 }
 
-.count {
+.detail {
   margin-left: 1rem;
   color: var(--ifm-color-emphasis-600);
   font-size: 0.8125rem;

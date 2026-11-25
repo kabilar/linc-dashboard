@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { formatNumber } from "./data";
 import styles from "./MultiSelect.module.css";
 
 const MAX_CHIPS = 2;
@@ -7,7 +6,8 @@ const MAX_CHIPS = 2;
 /**
  * A dropdown of checkboxes for choosing several values.
  *
- * options: [{ value, label?, count?, color? }]
+ * options: [{ value, label?, detail?, color? }], where detail is shown after
+ * the label, e.g. the size of the matching data.
  * selected: array of values; an empty array means "all".
  */
 export default function MultiSelect({ label, options, selected, onChange, allLabel = "All" }) {
@@ -39,7 +39,7 @@ export default function MultiSelect({ label, options, selected, onChange, allLab
   // Keep selected values that no longer have an option (e.g. from a shared URL).
   const allOptions = [
     ...options,
-    ...selected.filter((value) => !byValue.has(value)).map((value) => ({ value, count: 0 })),
+    ...selected.filter((value) => !byValue.has(value)).map((value) => ({ value })),
   ];
 
   function toggle(value) {
@@ -97,7 +97,7 @@ export default function MultiSelect({ label, options, selected, onChange, allLab
               <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
               {option.color && <span className={styles.swatch} style={{ background: option.color }} aria-hidden="true" />}
               <span className={styles.optionLabel}>{option.label ?? option.value}</span>
-              {option.count !== undefined && <span className={styles.count}>{formatNumber(option.count)}</span>}
+              {option.detail !== undefined && <span className={styles.detail}>{option.detail}</span>}
             </label>
           ))}
           {selected.length > 0 && (
