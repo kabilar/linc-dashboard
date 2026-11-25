@@ -49,9 +49,11 @@
 }
 
 .caret {
+  flex: none;
   margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--ifm-color-emphasis-600);
+  /* Same position as the arrow of the other dropdowns */
+  margin-right: 0.05rem;
+  color: #606770;
 }
 
 .chip {

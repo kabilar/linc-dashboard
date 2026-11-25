@@ -191,3 +191,13 @@
 .range {
   font-variant-numeric: tabular-nums;
 }
+
+.pageSize select {
+  appearance: none;
+  padding-right: 1.6rem;
+  background-image: var(--dashboard-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 0.7rem;
+  cursor: pointer;
+}

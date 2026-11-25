@@ -62,3 +62,14 @@
 .clear:hover {
   background-color: var(--ifm-color-emphasis-100);
 }
+
+/* The same arrow in every dropdown */
+.filter select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: var(--dashboard-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 0.75rem;
+  cursor: pointer;
+}

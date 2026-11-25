@@ -79,9 +79,16 @@ export default function MultiSelect({ label, options, selected, onChange, allLab
         <span className={styles.value} id={`${listId}-value`}>
           {summary}
         </span>
-        <span className={styles.caret} aria-hidden="true">
-          ▾
-        </span>
+        <svg className={styles.caret} viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path
+            d="M2.5 4.25 6 7.75l3.5-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       {open && (
         <div className={styles.popover} id={listId} role="group" aria-labelledby={`${listId}-label`}>
