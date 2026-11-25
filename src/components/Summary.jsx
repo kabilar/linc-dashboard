@@ -25,6 +25,7 @@ import {
 } from "./data";
 import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
+import chartStyles from "./Charts.module.css";
 
 // Filters and their URL query parameters
 const FILTERS = {
@@ -348,6 +349,16 @@ function Dashboard({ rows, names }) {
       <div className={isStale ? styles.stale : undefined}>
         <StatTiles stats={stats} total={files.length} basis={basis} />
 
+        <section className={chartStyles.card}>
+          <div className={chartStyles.header}>
+            <h3 className={chartStyles.title}>Subjects by modality</h3>
+            <span className={chartStyles.description}>
+              Subjects with data for each modality. Select a cell to browse its files.
+            </span>
+          </div>
+          <ModalityHeatmap rows={heatmapRows} />
+        </section>
+
         <ActivityChart files={filtered} basis={basis} months={months} modalities={scope} />
         <SubjectTimeline
           files={filtered}
@@ -370,10 +381,6 @@ function Dashboard({ rows, names }) {
 
         <section>
           <h2>Modalities</h2>
-          <p>
-            Subjects with data for each modality. Select a cell to browse its <Link to="/files">files</Link>.
-          </p>
-          <ModalityHeatmap rows={heatmapRows} />
           <DataTable
             columns={MODALITY_COLUMNS}
             rows={modalityRows}
