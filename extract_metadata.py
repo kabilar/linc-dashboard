@@ -9,11 +9,12 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# Modality of each file, from the BIDS suffix in its name (e.g. sub-X_..._SPIM.ome.zarr),
+# matched case-insensitively anywhere in the file name, in this order
 modalities = {'oct': 'PS-OCT',
               'df': 'Dark-field microscopy',
               'xpct': 'HiP-CT',
               'dwi': 'Diffusion MRI',
-              'fluo': 'Light-sheet microscopy',
               'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
 
