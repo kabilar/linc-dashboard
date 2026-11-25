@@ -1,5 +1,6 @@
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,6 +41,12 @@ ARCHIVES = {
 
 VERSION = 'draft'
 
+ASSETS_CSV = './static/lincbrain_assets.csv'
+
+OME_ZARR = 'OME-Zarr'
+# Concurrent requests when reading OME-Zarr metadata
+ZARR_WORKERS = 16
+
 # Dataset-level BIDS files that do not belong to a subject
 DATASET_LEVEL_FILES = {'dataset_description.json', 'participants.tsv', 'participants.json',
                        'samples.tsv', 'samples.json', 'readme', 'readme.md', 'readme.txt',
@@ -53,7 +60,7 @@ class ArchiveClient:
         self.api_url = api_url
         self.session = requests.Session()
         retries = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
-        self.session.mount('https://', HTTPAdapter(max_retries=retries))
+        self.session.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=ZARR_WORKERS))
         if token:
             self.session.headers['Authorization'] = f'token {token}'
 
@@ -80,6 +87,121 @@ class ArchiveClient:
             yield from page['results']
             # The `next` URL already includes the query parameters
             url, params = page['next'], None
+
+
+class ZarrReader:
+    """Reads small JSON files of Zarr archives from an archive's storage."""
+
+    def __init__(self, client):
+        self.client = client
+        # A separate session, so that the API key is never sent to the storage
+        self.storage = requests.Session()
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        self.storage.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=ZARR_WORKERS))
+
+    def read_json(self, zarr_id, storage_url, name):
+        """Return the JSON file `name` of a Zarr archive, or None if it does not exist."""
+        if storage_url:
+            response = self.storage.get(storage_url + name, timeout=60)
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code == 404:
+                return None
+            if response.status_code != 403:
+                response.raise_for_status()
+        # Private storage: the API redirects to a signed URL (requests drops the
+        # API key when following a redirect to another host).
+        response = self.client.session.get(f'{self.client.api_url}/zarr/{zarr_id}/files/',
+                                           params={'prefix': name, 'download': 'true'}, timeout=60)
+        if response.status_code in (403, 404):
+            return None
+        response.raise_for_status()
+        return response.json()
+
+
+def ngff_version(attributes):
+    """The OME-NGFF version declared in a Zarr group's attributes."""
+    ome = attributes.get('ome')
+    if isinstance(ome, dict) and ome.get('version'):
+        return str(ome['version'])  # OME-Zarr 0.5 and later
+    # OME-Zarr 0.4 and earlier (also found in Zarr v3 groups)
+    for group in (attributes, ome if isinstance(ome, dict) else {}):
+        multiscales = group.get('multiscales')
+        if isinstance(multiscales, list) and multiscales and isinstance(multiscales[0], dict):
+            if multiscales[0].get('version'):
+                return str(multiscales[0]['version'])
+        for key in ('plate', 'well'):
+            if isinstance(group.get(key), dict) and group[key].get('version'):
+                return str(group[key]['version'])
+    return None
+
+
+def ome_zarr_version(reader, zarr_id, storage_url):
+    """The OME-NGFF version of an OME-Zarr archive, or None if it cannot be read."""
+    # zarr.json for Zarr v3 (OME-Zarr 0.5 and later), .zattrs for Zarr v2
+    for name in ('zarr.json', '.zattrs'):
+        document = reader.read_json(zarr_id, storage_url, name)
+        if document is None:
+            continue
+        attributes = document.get('attributes', {}) if name == 'zarr.json' else document
+        version = ngff_version(attributes)
+        if version is None and 'bioformats2raw.layout' in {**attributes, **(attributes.get('ome') or {})}:
+            # The image is in the first series
+            series = reader.read_json(zarr_id, storage_url, f'0/{name}')
+            if series is not None:
+                version = ngff_version(series.get('attributes', {}) if name == 'zarr.json' else series)
+        return version
+    return None
+
+
+def storage_url(metadata):
+    """The asset's storage URL (e.g. on S3), rather than its API download URL."""
+    return next((url for url in metadata.get('contentUrl') or [] if '/api/' not in url), None)
+
+
+def add_ome_zarr_versions(archive, client, rows, cache):
+    """Replace "OME-Zarr" extensions with e.g. "OME-Zarr v0.5"."""
+    zarrs = [row for row in rows if row['Extension'] == OME_ZARR and row['_zarr']]
+    pending = []
+    for row in zarrs:
+        cached = cache.get((row['Archive'], row['Dataset'], row['Path'], row['Uploaded']))
+        if cached:
+            row['Extension'] = cached
+        else:
+            pending.append(row)
+
+    reader = ZarrReader(client)
+
+    def read(row):
+        try:
+            return ome_zarr_version(reader, row['_zarr'], row['_storage'])
+        except (requests.RequestException, ValueError):
+            return None
+
+    with ThreadPoolExecutor(max_workers=ZARR_WORKERS) as executor:
+        versions = list(executor.map(read, pending))
+
+    for row, version in zip(pending, versions):
+        if version:
+            row['Extension'] = f'{OME_ZARR} v{version}'
+
+    unknown = sum(version is None for version in versions)
+    print(f'{archive}: {len(zarrs)} OME-Zarr archives; read the version of {len(pending)} '
+          f'(the others are unchanged since the previous run); {unknown} without a version', flush=True)
+    if unknown:
+        warn(f'{archive}: {unknown} OME-Zarr archives have no readable OME-NGFF version')
+
+
+def load_cache(path=ASSETS_CSV):
+    """OME-Zarr extensions from the previous run, keyed by asset and upload date."""
+    if not os.path.exists(path):
+        return {}
+    previous = pd.read_csv(path, dtype=str, keep_default_na=False)
+    if 'Archive' not in previous or 'Uploaded' not in previous:
+        return {}
+    previous = previous[previous['Extension'].str.startswith(f'{OME_ZARR} v')]
+    return {(row.Archive, row.Dataset, row.Path, row.Uploaded): row.Extension
+            for row in previous.itertuples() if row.Uploaded}
 
 
 def warn(message):
@@ -119,6 +241,8 @@ def parse_modality(path):
 
 
 def parse_extension(path):
+    if path.lower().endswith('.ome.zarr'):
+        return OME_ZARR  # the version is added by add_ome_zarr_versions
     suffixes = Path(path).suffixes
     return suffixes[0][1:] if suffixes else ''
 
@@ -169,7 +293,7 @@ def list_datasets(archive, client, config):
 
 
 # Create dataframes of all assets across all datasets, and of the datasets' names
-def extract_assets(archive, client, config):
+def extract_assets(archive, client, config, cache=None):
     datasets = list_datasets(archive, client, config)
 
     latest_assets = []
@@ -203,7 +327,13 @@ def extract_assets(archive, client, config):
                 "Produced": to_utc_date(metadata.get('blobDateModified')),
                 # Upload time (set by dandi-cli); `created` changes when an asset is moved
                 "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
+                "_zarr": asset.get('zarr'),
+                "_storage": storage_url(metadata),
             })
+
+    add_ome_zarr_versions(archive, client, latest_assets, cache or {})
+    for row in latest_assets:
+        del row['_zarr'], row['_storage']
 
     names = pd.DataFrame([{"Archive": archive, "Dataset": identifier, "Name": name}
                           for identifier, name in datasets.items()])
@@ -263,6 +393,7 @@ def write_csvs(df, df_names, directory='./static'):
 
 
 if __name__ == "__main__":
+    cache = load_cache()
     assets, names = [], []
     for archive, config in ARCHIVES.items():
         token = os.environ.get(config['token_env'])
@@ -272,7 +403,7 @@ if __name__ == "__main__":
         client = ArchiveClient(config['api_url'], token)
         if token:
             client.check_token(config['token_env'])
-        df_archive, df_archive_names = extract_assets(archive, client, config)
+        df_archive, df_archive_names = extract_assets(archive, client, config, cache)
         assets.append(df_archive)
         names.append(df_archive_names)
 
