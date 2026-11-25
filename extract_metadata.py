@@ -22,7 +22,7 @@ modalities = {'oct': 'PS-OCT',
 ARCHIVES = {
     'LINC': {
         'api_url': 'https://api.lincbrain.org/api',
-        'token_env': 'DANDI_API_KEY',
+        'token_env': 'LINC_API_KEY',
         'token_required': True,
         # All datasets except '000048' (OpenBNB) and '000004' (Mouse LSM).
         # Exclude 000053 temporarily due to large number of assets.
@@ -30,7 +30,7 @@ ARCHIVES = {
     },
     'DANDI': {
         'api_url': 'https://api.dandiarchive.org/api',
-        'token_env': 'DANDI_ARCHIVE_API_KEY',
+        'token_env': 'DANDI_API_KEY',
         'token_required': False,
         # LINC-related datasets on dandiarchive.org.  Datasets that cannot be
         # accessed (e.g. embargoed without an API key) are skipped.
@@ -56,6 +56,14 @@ class ArchiveClient:
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
         if token:
             self.session.headers['Authorization'] = f'token {token}'
+
+    def check_token(self, token_env):
+        # An invalid key makes every request fail with 401, which would
+        # otherwise look like datasets that cannot be accessed.
+        response = self.session.get(f'{self.api_url}/auth/token/', timeout=120)
+        if response.status_code in (401, 403):
+            raise RuntimeError(f'{token_env} is not a valid API key for {self.api_url}')
+        response.raise_for_status()
 
     def get(self, path, params=None):
         response = self.session.get(f'{self.api_url}{path}', params=params, timeout=120)
@@ -262,6 +270,8 @@ if __name__ == "__main__":
             raise RuntimeError(f"{config['token_env']} environment variable not set")
 
         client = ArchiveClient(config['api_url'], token)
+        if token:
+            client.check_token(config['token_env'])
         df_archive, df_archive_names = extract_assets(archive, client, config)
         assets.append(df_archive)
         names.append(df_archive_names)
