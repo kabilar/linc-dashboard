@@ -10,6 +10,7 @@ import {
   datasetId,
   datasetSortKey,
   datasetUrl,
+  UPLOADED_DESCRIPTION,
 } from "./data";
 import styles from "./Summary.module.css";
 
@@ -45,6 +46,25 @@ const DATASET_COLUMNS = [
   sizeColumn,
   listColumn("Subject"),
   listColumn("Extension"),
+  {
+    key: "Last uploaded",
+    label: "Uploaded",
+    description: `First and last ${UPLOADED_DESCRIPTION.charAt(0).toLowerCase()}${UPLOADED_DESCRIPTION.slice(1)}`,
+    className: styles.nowrap,
+    render: (row) => {
+      const first = row["First uploaded"];
+      const last = row["Last uploaded"];
+      if (!last) return <span className={styles.muted}>—</span>;
+      return first && first !== last ? (
+        <>
+          {first} –<br />
+          {last}
+        </>
+      ) : (
+        last
+      );
+    },
+  },
 ];
 
 const MODALITY_COLUMNS = [

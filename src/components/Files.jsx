@@ -14,6 +14,8 @@ import {
   datasetSortKey,
   datasetUrl,
   assetFolderUrl,
+  PRODUCED_DESCRIPTION,
+  UPLOADED_DESCRIPTION,
 } from "./data";
 import styles from "./Files.module.css";
 
@@ -82,6 +84,20 @@ const COLUMNS = [
     label: "Size",
     align: "right",
     render: (row) => formatBytes(row.size),
+  },
+  {
+    key: "Produced",
+    label: "Produced",
+    description: PRODUCED_DESCRIPTION,
+    className: styles.nowrap,
+    render: (row) => row.Produced || "—",
+  },
+  {
+    key: "Uploaded",
+    label: "Uploaded",
+    description: UPLOADED_DESCRIPTION,
+    className: styles.nowrap,
+    render: (row) => row.Uploaded || "—",
   },
 ];
 

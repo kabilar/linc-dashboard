@@ -44,7 +44,7 @@ function SortIndicator({ direction }) {
 /**
  * A sortable (and optionally paginated) table.
  *
- * columns: [{ key, label, align?, className?, render?(row), sortValue?(row), sortable? }]
+ * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable? }]
  * rowKey: (row) => unique key; rows keep their state (e.g. expanded lists) when re-sorted.
  */
 export default function DataTable({
@@ -116,7 +116,11 @@ export default function DataTable({
                     className={clsx(column.align === "right" && styles.alignRight)}
                     aria-sort={direction ? (direction === "asc" ? "ascending" : "descending") : undefined}>
                     {sortable ? (
-                      <button type="button" className={styles.sortButton} onClick={() => toggleSort(column.key)}>
+                      <button
+                        type="button"
+                        className={styles.sortButton}
+                        title={column.description}
+                        onClick={() => toggleSort(column.key)}>
                         {column.label}
                         <SortIndicator direction={direction} />
                       </button>
