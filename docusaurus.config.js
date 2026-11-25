@@ -63,8 +63,8 @@ const config = {
         },
         items: [
           {to: '/files', label: 'All Files', position: 'right'},
-          {to: 'https://lincbrain.org', label: 'lincbrain.org ↗', position: 'right'},
-          {to: 'https://connects.mgh.harvard.edu/', label: 'Homepage ↗', position: 'right'},
+          {to: 'https://gallery.lincbrain.org', label: 'LINC Gallery ↗', position: 'right'},
+          {to: 'https://connects.mgh.harvard.edu/', label: 'Project homepage ↗', position: 'right'},
         ],
       },
       footer: {
