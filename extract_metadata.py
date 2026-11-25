@@ -18,13 +18,12 @@ modalities = {'oct': 'PS-OCT',
               'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
 
-# Folders whose files lack the BIDS suffix of their modality in their names.
-# Their files of unknown modality get the folder's modality and a note that
-# they need to be renamed.
-MISSING_SUFFIX = [
-    # (archive, dataset, folder, modality, BIDS suffix)
-    ('DANDI', '001412', 'rawdata/sub-MF284/strips_raw/', 'Light-sheet microscopy', 'SPIM'),
-]
+# Curated modalities and subjects for files whose names do not give them;
+# see curation/README.md
+MAPPINGS_CSV = './curation/mappings.csv'
+# Folders that still have files of unknown modality or subject
+UNMAPPED_CSV = './curation/unmapped.csv'
+UNMAPPED_FOLDER_DEPTH = 3
 
 # Archives to index, keyed by the prefix of their dataset identifiers
 # (e.g. LINC:000003, DANDI:001412). `token_env` names the environment variable
@@ -249,16 +248,6 @@ def parse_modality(path):
     return next((value for key, value in modalities.items() if key in filename), 'Unknown')
 
 
-def classify(archive, dataset, path):
-    """Return the modality of a file, and a note if the file needs attention."""
-    modality = parse_modality(path)
-    if modality == 'Unknown':
-        for folder_archive, folder_dataset, folder, folder_modality, suffix in MISSING_SUFFIX:
-            if (archive, dataset) == (folder_archive, folder_dataset) and path.startswith(folder):
-                return folder_modality, f'Needs renaming: add the _{suffix} suffix'
-    return modality, ''
-
-
 def parse_extension(path):
     if path.lower().endswith('.ome.zarr'):
         return OME_ZARR  # the version is added by add_ome_zarr_versions
@@ -333,13 +322,12 @@ def extract_assets(archive, client, config, cache=None):
 
         for asset in assets:
             metadata = asset_metadata(client, identifier, asset)
-            modality, note = classify(archive, identifier, asset['path'])
             latest_assets.append({
                 "Archive": archive,
                 "Dataset": identifier,
                 "Version": VERSION,
                 "Subject": parse_subject(asset['path']),
-                "Modality": modality,
+                "Modality": parse_modality(asset['path']),
                 "Size (bytes)": asset['size'],
                 "Path": asset['path'],
                 "Extension": parse_extension(asset['path']),
@@ -347,8 +335,8 @@ def extract_assets(archive, client, config, cache=None):
                 "Produced": to_utc_date(metadata.get('blobDateModified')),
                 # Upload time (set by dandi-cli); `created` changes when an asset is moved
                 "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
-                # e.g. "Needs renaming: add the _SPIM suffix"
-                "Note": note,
+                # Set by apply_mappings, e.g. "Needs renaming: add the _SPIM suffix"
+                "Note": '',
                 "_zarr": asset.get('zarr'),
                 "_storage": storage_url(metadata),
             })
@@ -408,10 +396,65 @@ def summarize_modalities(df):
     return df_modalities
 
 
-def write_csvs(df, df_names, directory='./static'):
+def load_mappings(path=MAPPINGS_CSV):
+    """Curated mappings, most specific folders first."""
+    if not os.path.exists(path):
+        return []
+    mappings = pd.read_csv(path, dtype=str, keep_default_na=False).to_dict('records')
+    known = set(modalities.values())
+    for mapping in mappings:
+        mapping['Folder'] = mapping['Folder'].strip('/')
+        if mapping['Modality'] and mapping['Modality'] not in known:
+            warn(f"{path}: unknown modality {mapping['Modality']!r} for {mapping['Folder']}")
+    return sorted(mappings, key=lambda mapping: -len(mapping['Folder']))
+
+
+def apply_mappings(df, mappings):
+    """Fill unknown modalities and subjects from the mappings, and add their notes.
+
+    A mapping applies to the files of its dataset under its folder (the whole
+    dataset if the folder is empty). Its modality and subject only replace
+    "Unknown"; its note is added to the files it changed, or to all of its
+    files if it sets neither modality nor subject.
+    """
+    records = df.to_dict('records')
+    for record in records:
+        notes = []
+        for mapping in mappings:
+            if (mapping['Archive'], mapping['Dataset']) != (record['Archive'], record['Dataset']):
+                continue
+            if mapping['Folder'] and not record['Path'].startswith(mapping['Folder'] + '/'):
+                continue
+            applied = not (mapping['Modality'] or mapping['Subject'])
+            for field in ('Modality', 'Subject'):
+                if mapping[field] and record[field] == 'Unknown':
+                    record[field] = mapping[field]
+                    applied = True
+            if applied and mapping['Note'] and mapping['Note'] not in notes:
+                notes.append(mapping['Note'])
+        record['Note'] = '; '.join(notes)
+    return pd.DataFrame(records, columns=df.columns)
+
+
+def summarize_unmapped(df, depth=UNMAPPED_FOLDER_DEPTH):
+    """Folders (up to `depth` levels) with files of unknown modality or subject."""
+    unknown = df[(df['Modality'] == 'Unknown') | (df['Subject'] == 'Unknown')]
+    folders = unknown['Path'].map(lambda path: '/'.join(path.split('/')[:-1][:depth]))
+    return (unknown.assign(Folder=folders)
+                   .groupby(['Archive', 'Dataset', 'Folder'])
+                   .agg(**{"Files": ("Path", "size"),
+                           "Size (GB)": ("Size (bytes)", lambda sizes: round(sizes.sum()/(1000**3), 2)),
+                           "Unknown modality": ("Modality", lambda values: int((values == 'Unknown').sum())),
+                           "Unknown subject": ("Subject", lambda values: int((values == 'Unknown').sum())),
+                           "Example": ("Path", "first")})
+                   .reset_index())
+
+
+def write_csvs(df, df_names, directory='./static', unmapped_path=UNMAPPED_CSV):
     df.to_csv(f'{directory}/lincbrain_assets.csv', index=False)
     summarize_datasets(df, df_names).to_csv(f'{directory}/lincbrain_datasets.csv', index=False)
     summarize_modalities(df).to_csv(f'{directory}/lincbrain_modalities.csv', index=False)
+    summarize_unmapped(df).to_csv(unmapped_path, index=False)
 
 
 if __name__ == "__main__":
@@ -429,4 +472,5 @@ if __name__ == "__main__":
         assets.append(df_archive)
         names.append(df_archive_names)
 
-    write_csvs(pd.concat(assets, ignore_index=True), pd.concat(names, ignore_index=True))
+    df = apply_mappings(pd.concat(assets, ignore_index=True), load_mappings())
+    write_csvs(df, pd.concat(names, ignore_index=True))
