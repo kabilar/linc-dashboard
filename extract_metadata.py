@@ -36,6 +36,8 @@ BIDS_NOT_VALIDATED = 'Not validated'
 MAPPINGS_CSV = './curation/mappings.csv'
 # Folders that still have files of unknown modality or subject
 UNMAPPED_CSV = './curation/unmapped.csv'
+# Curated names of samples whose label is spelled several ways
+SAMPLES_CSV = './curation/samples.csv'
 UNMAPPED_FOLDER_DEPTH = 3
 
 # Archives to index, keyed by the prefix of their dataset identifiers
@@ -392,6 +394,28 @@ def parse_subject(path):
     return 'Unknown'
 
 
+def parse_sample(path):
+    """The tissue sample of a file: the BIDS `sample-<label>` entity of its
+    name, e.g. sub-MF284_sample-slice079_..., or else of the nearest folder,
+    e.g. sub-MR256_sample-slice0001/fixed.png. Empty if neither has one."""
+    parts = path.split('/')
+    match = re.search(r'(?:^|_)sample-([A-Za-z0-9]+)', parts[-1])
+    if match:
+        return match.group(1)
+    for part in reversed(parts[:-1]):
+        # Folder names may join entities with hyphens, e.g. sub-MF284-sample-slice079
+        match = re.search(r'(?:^|[_-])sample-([A-Za-z0-9]+)', part)
+        if match:
+            return match.group(1)
+    return ''
+
+
+def parse_stain(path):
+    """The BIDS `stain-<label>` entity of a file's name, e.g. LY. Empty if none."""
+    match = re.search(r'(?:^|_)stain-([A-Za-z0-9]+)', path.split('/')[-1])
+    return match.group(1) if match else ''
+
+
 def parse_modality(path):
     filename = path.split('/')[-1].lower()
     return next((value for key, value in modalities.items() if key in filename), 'Unknown')
@@ -491,6 +515,8 @@ def extract_assets(archive, client, config, cache=None):
                 "Dataset": identifier,
                 "Version": VERSION,
                 "Subject": parse_subject(asset['path']),
+                "Sample": parse_sample(asset['path']),
+                "Stain": parse_stain(asset['path']),
                 "Modality": parse_modality(asset['path']),
                 "Size (bytes)": asset['size'],
                 "Path": asset['path'],
@@ -532,19 +558,31 @@ def latest(values):
     return values.max() if len(values) else ''
 
 
+def sample_keys(df):
+    """Each file's sample as subject/label (labels are only unique within a
+    subject), or empty."""
+    return (df['Subject'] + '/' + df['Sample']).where(df['Sample'] != '', '')
+
+
+def count_samples(keys):
+    return keys[keys != ''].nunique()
+
+
 # Summarize data across datasets
 def summarize_datasets(df, df_names):
-    df_datasets = (df.groupby(['Archive', 'Dataset'], sort=False)
+    df_datasets = (df.assign(_sample=sample_keys(df))
+                     .groupby(['Archive', 'Dataset'], sort=False)
                      .agg(**{"Modality": ("Modality", join_unique),
                              "Size (GB)": ("Size (bytes)", lambda sizes: round(sizes.sum()/(1000**3), 2)),
                              "Subject": ("Subject", join_unique),
+                             "Samples": ("_sample", count_samples),
                              "Extension": ("Extension", join_unique),
                              "First uploaded": ("Uploaded", earliest),
                              "Last uploaded": ("Uploaded", latest)})
                      .reset_index())
     df_datasets = df_datasets.merge(df_names, on=['Archive', 'Dataset'], how='left')
-    return df_datasets[["Archive", "Dataset", "Name", "Modality", "Size (GB)", "Subject", "Extension",
-                        "First uploaded", "Last uploaded"]]
+    return df_datasets[["Archive", "Dataset", "Name", "Modality", "Size (GB)", "Subject", "Samples",
+                        "Extension", "First uploaded", "Last uploaded"]]
 
 
 # Summarize data across modalities
@@ -554,11 +592,14 @@ def summarize_modalities(df):
     df_modalities = pd.DataFrame(columns=["Modality",
                                           "Size (GB)",
                                           "Subject",
+                                          "Samples",
                                           "Extension"])
+    keys = sample_keys(df)
     for value in local_modalities:
         df_modalities.loc[len(df_modalities)] = [value,
                     round(sum(df[(df['Modality'] == value)]['Size (bytes)'])/(1000**3),2),
                     ','.join(df[(df['Modality'] == value)]['Subject'].unique()),
+                    count_samples(keys[df['Modality'] == value]),
                     ','.join(df[(df['Modality'] == value)]['Extension'].unique())]
 
     return df_modalities
@@ -604,6 +645,34 @@ def apply_mappings(df, mappings):
     return pd.DataFrame(records, columns=df.columns)
 
 
+def load_sample_names(path=SAMPLES_CSV):
+    """Curated sample names, keyed by (archive, dataset, subject, label); an
+    empty subject stands for any subject of the dataset."""
+    if not os.path.exists(path):
+        return {}
+    rows = pd.read_csv(path, dtype=str, keep_default_na=False).to_dict('records')
+    return {(row['Archive'], row['Dataset'], row['Subject'], row['Sample']): row['Same as'] for row in rows}
+
+
+def apply_sample_names(df, names):
+    """Rename the samples listed in curation/samples.csv, e.g. lefthemi to
+    LeftHemi, so that one sample spelled several ways counts once."""
+    if not names:
+        return df
+
+    def rename(row):
+        for subject in (row['Subject'], ''):
+            name = names.get((row['Archive'], row['Dataset'], subject, row['Sample']))
+            if name:
+                return name
+        return row['Sample']
+
+    has_sample = df['Sample'] != ''
+    df = df.copy()
+    df.loc[has_sample, 'Sample'] = df[has_sample].apply(rename, axis=1)
+    return df
+
+
 def summarize_unmapped(df, depth=UNMAPPED_FOLDER_DEPTH):
     """Folders (up to `depth` levels) with files of unknown modality or subject."""
     unknown = df[(df['Modality'] == 'Unknown') | (df['Subject'] == 'Unknown')]
@@ -641,4 +710,5 @@ if __name__ == "__main__":
         names.append(df_archive_names)
 
     df = apply_mappings(pd.concat(assets, ignore_index=True), load_mappings())
+    df = apply_sample_names(df, load_sample_names())
     write_csvs(df, pd.concat(names, ignore_index=True))
