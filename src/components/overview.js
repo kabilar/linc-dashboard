@@ -2,7 +2,7 @@
 import { useDeferredValue, useMemo } from "react";
 import useUrlFilters, { filtersToSearch } from "./useUrlFilters";
 import { MODALITIES, UNKNOWN_MODALITY, compareModalities } from "./modalities";
-import { datasetId, toNumber } from "./data";
+import { compareLabels, datasetId, toNumber } from "./data";
 
 export const OVERVIEW_FILTERS = {
   Modality: { param: "modality", multi: true },
@@ -13,6 +13,17 @@ export const OVERVIEW_FILTERS = {
 };
 
 export const INVALID_BIDS = "Invalid";
+
+// Listed first on the Overview, in this order
+export const FEATURED_SUBJECTS = ["PH1", "PM1", "Ha1", "Hb1", "Hb2", "M1", "M2", "M3", "M4"];
+
+export function compareSubjects(a, b, fallback = compareLabels) {
+  const rank = (subject) => {
+    const index = FEATURED_SUBJECTS.indexOf(subject);
+    return index === -1 ? FEATURED_SUBJECTS.length : index;
+  };
+  return rank(a) - rank(b) || fallback(a, b);
+}
 
 export const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 

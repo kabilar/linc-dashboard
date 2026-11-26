@@ -5,7 +5,7 @@ import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } fr
 import { compareLabels, formatNumber } from "./data";
 import { dayValue, monthEndValue, shortMonth, useElementWidth } from "./charts";
 import SectionHeading from "./SectionHeading";
-import { filesQuery } from "./overview";
+import { compareSubjects, filesQuery } from "./overview";
 import styles from "./Charts.module.css";
 
 const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
@@ -72,7 +72,10 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
         const first = items.reduce((min, item) => (item.first < min ? item.first : min), items[0].first);
         return { subject, items, datasets, first };
       })
-      .sort((a, b) => a.first.localeCompare(b.first) || compareLabels(a.subject, b.subject));
+      // Featured subjects first, then by first date
+      .sort((a, b) =>
+        compareSubjects(a.subject, b.subject, () => a.first.localeCompare(b.first) || compareLabels(a.subject, b.subject)),
+      );
   }, [files, basis, includeUnknown]);
 
   const legendNames = [...new Set(lanes.flatMap((lane) => lane.items.map((item) => item.modality)))].sort(compareModalities);

@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
-import { compareLabels, splitList } from "./data";
+import { splitList } from "./data";
 import { compareModalities } from "./modalities";
-import { filesQuery } from "./overview";
+import { compareSubjects, filesQuery } from "./overview";
 import styles from "./ModalityHeatmap.module.css";
 
 const NOT_A_SUBJECT = "n/a";
@@ -21,7 +21,7 @@ export default function ModalityHeatmap({ rows, linkFilters = {} }) {
         subjects: new Set(splitList(row.Subject).filter((subject) => subject !== NOT_A_SUBJECT)),
       }))
       .sort((a, b) => compareModalities(a.name, b.name));
-    const subjects = [...new Set(modalities.flatMap((modality) => [...modality.subjects]))].sort(compareLabels);
+    const subjects = [...new Set(modalities.flatMap((modality) => [...modality.subjects]))].sort((a, b) => compareSubjects(a, b));
     return { modalities, subjects };
   }, [rows]);
 
