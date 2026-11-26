@@ -49,7 +49,32 @@
   --modality-5: #e24d8b;
   --modality-6: #0aac23;
   --modality-unknown: #6b6e76;
-  --modality-other: #8d9098;
+}
+
+/* Tables are styled by their components */
+table {
+  display: table;
+  margin: 0;
+  overflow: visible;
+}
+
+table thead,
+table tr,
+table tr:nth-child(2n),
+table th {
+  background-color: transparent;
+}
+
+table thead tr,
+table tr,
+table th,
+table td {
+  border: 0;
+}
+
+table th,
+table td {
+  padding: 0;
 }
 
 .navbar {
@@ -93,9 +118,6 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.25rem 1.25rem;
-  width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
-  max-width: calc(100% - 2 * var(--ifm-spacing-horizontal));
-  margin: 0 auto;
 }
 
 .heroTitle {
@@ -123,10 +145,6 @@ main article > header > h1 {
   .heroTitle,
   main article > header > h1 {
     font-size: 1.75rem;
-  }
-
-  .heroSubtitle {
-    font-size: 1rem;
   }
 }
 
@@ -167,15 +185,7 @@ main article > header > h1 {
   color: var(--ifm-color-primary);
 }
 
-/* So that nothing overflows on phones */
-.viewer-card {
-  width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
-  max-width: 100%;
-}
-
+/* Wider than Infima's; this selector also outranks its wide-screen and fluid widths */
 .container:not(.footer .container) {
-  max-width: 95vw !important;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  max-width: 95vw;
 }

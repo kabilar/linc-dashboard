@@ -1,17 +1,17 @@
 import { useMemo } from "react";
+import ChartCard from "./ChartCard";
 import ModalityHeatmap from "./ModalityHeatmap";
 import LoadingState from "./LoadingState";
 import ActivityChart from "./ActivityChart";
 import SubjectTimeline from "./SubjectTimeline";
 import OverviewFilters from "./OverviewFilters";
-import SectionHeading, { useScrollToHash } from "./SectionHeading";
+import { useScrollToHash } from "./SectionHeading";
 import { UNKNOWN_MODALITY } from "./modalities";
 import { monthRange } from "./charts";
-import { useCsv, formatBytes, formatNumber } from "./data";
-import { NOT_SUBJECTS, sampleKey, summarizeModalities, useOverview } from "./overview";
+import { ASSETS_CSV, useCsv, formatBytes, formatNumber } from "./data";
+import { NOT_SUBJECTS, sampleKey, subjectsByModality, useOverview } from "./overview";
 import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
-import chartStyles from "./Charts.module.css";
 
 function monthsOf(files, basis, from, to) {
   let first = from;
@@ -76,10 +76,7 @@ function Dashboard({ rows }) {
 
   const months = useMemo(() => monthsOf(filtered, basis, deferred.From, deferred.To), [filtered, basis, deferred.From, deferred.To]);
   const stats = useMemo(() => summarize(filtered, basis), [filtered, basis]);
-  const heatmapRows = useMemo(
-    () => summarizeModalities(filtered, scope).map((row) => ({ Modality: row.Modality, Subject: row.Subject })),
-    [filtered, scope],
-  );
+  const subjects = useMemo(() => subjectsByModality(filtered, scope), [filtered, scope]);
 
   return (
     <>
@@ -87,17 +84,12 @@ function Dashboard({ rows }) {
       <div className={isStale ? filterStyles.stale : undefined}>
         <StatTiles stats={stats} total={files.length} basis={basis} />
         <ActivityChart files={filtered} basis={basis} months={months} modalities={scope} />
-        <section className={chartStyles.card}>
-          <div className={chartStyles.header}>
-            <SectionHeading as="h3" id="subjects-by-modality" className={chartStyles.title}>
-              Subjects by modality
-            </SectionHeading>
-            <span className={chartStyles.description}>
-              Subjects with data for each modality. Select a cell to browse its files.
-            </span>
-          </div>
-          <ModalityHeatmap rows={heatmapRows} linkFilters={deferred} />
-        </section>
+        <ChartCard
+          id="subjects-by-modality"
+          title="Subjects by modality"
+          description="Subjects with data for each modality. Select a cell to browse its files.">
+          <ModalityHeatmap subjectsByModality={subjects} linkFilters={deferred} />
+        </ChartCard>
         <SubjectTimeline
           files={filtered}
           basis={basis}
@@ -111,6 +103,6 @@ function Dashboard({ rows }) {
 }
 
 export default function Summary() {
-  const assets = useCsv("lincbrain_assets.csv");
+  const assets = useCsv(ASSETS_CSV);
   return <LoadingState {...assets}>{(rows) => <Dashboard rows={rows} />}</LoadingState>;
 }

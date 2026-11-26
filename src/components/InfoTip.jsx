@@ -1,5 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { keepInside, useDismiss } from "./popover";
 import styles from "./InfoTip.module.css";
+
+const MARGIN = 8;
 
 // An "i" button with a tooltip
 export default function InfoTip({ label, children }) {
@@ -10,31 +13,12 @@ export default function InfoTip({ label, children }) {
 
   // Keep the tooltip on screen
   useLayoutEffect(() => {
-    const tooltip = tooltipRef.current;
-    if (!open || !tooltip) return;
-    tooltip.style.transform = "";
-    const { left, right } = tooltip.getBoundingClientRect();
-    const margin = 8;
-    const width = document.documentElement.clientWidth;
-    const shift = left < margin ? margin - left : right > width - margin ? width - margin - right : 0;
-    if (shift) tooltip.style.transform = `translateX(${shift}px)`;
+    if (open && tooltipRef.current) {
+      keepInside(tooltipRef.current, MARGIN, document.documentElement.clientWidth - MARGIN);
+    }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function onPointerDown(event) {
-      if (!rootRef.current.contains(event.target)) setOpen(false);
-    }
-    function onKeyDown(event) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismiss(open, rootRef, () => setOpen(false));
 
   return (
     <span

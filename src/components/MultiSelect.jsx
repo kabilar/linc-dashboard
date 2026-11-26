@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useDismiss } from "./popover";
 import styles from "./MultiSelect.module.css";
 
 const MAX_CHIPS = 2;
@@ -10,24 +11,10 @@ export default function MultiSelect({ label, options, selected, onChange, allLab
   const buttonRef = useRef(null);
   const listId = useId();
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function onPointerDown(event) {
-      if (!rootRef.current.contains(event.target)) setOpen(false);
-    }
-    function onKeyDown(event) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current.focus();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismiss(open, rootRef, (escaped) => {
+    setOpen(false);
+    if (escaped) buttonRef.current.focus();
+  });
 
   const byValue = new Map(options.map((option) => [option.value, option]));
   // e.g. values from a link that no option has

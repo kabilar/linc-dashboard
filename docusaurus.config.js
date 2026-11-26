@@ -1,5 +1,3 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-
 const PRODUCTION_URL = 'https://dashboard.lincbrain.org';
 
 // Previews set these, e.g. SITE_URL=https://kabilar.github.io BASE_URL=/linc-dashboard/
@@ -13,7 +11,6 @@ const builtOn = builtAt.toLocaleDateString('en-US', {dateStyle: 'medium', timeZo
 
 const config = {
   title: 'LINC Dashboard',
-  staticDirectories: ['static'],
   tagline: "An overview of the LINC project's data on lincbrain.org and dandiarchive.org, for its investigators.",
   favicon: 'img/linc.logo.color+white.notext+square.png',
 
@@ -25,11 +22,6 @@ const config = {
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-
-  i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
-  },
 
   presets: [
     [
@@ -50,48 +42,42 @@ const config = {
     ],
   ],
 
-  themeConfig:
-    ({
-      announcementBar: isProduction
-        ? undefined
-        : {
-            id: 'preview',
-            content: `This is a preview. The live dashboard is at <a href="${PRODUCTION_URL}">dashboard.lincbrain.org</a>.`,
-            isCloseable: false,
-          },
-      navbar: {
-        logo: {
-          alt: 'Logo',
-          src: 'img/linc.logo.color+black.alpha.notext.png',
+  themeConfig: {
+    announcementBar: isProduction
+      ? undefined
+      : {
+          id: 'preview',
+          content: `This is a preview. The live dashboard is at <a href="${PRODUCTION_URL}">dashboard.lincbrain.org</a>.`,
+          isCloseable: false,
         },
-        items: [
-          // Active on the home page only
-          {to: '/', label: 'Overview', position: 'right', activeBaseRegex: `^${baseUrl}$`},
-          {to: '/datasets', label: 'Datasets', position: 'right'},
-          {to: '/files', label: 'Files', position: 'right'},
-          {to: 'https://gallery.lincbrain.org', label: 'LINC Gallery ↗', position: 'right'},
-          {to: 'https://connects.mgh.harvard.edu/', label: 'Project homepage ↗', position: 'right'},
-        ],
+    navbar: {
+      logo: {
+        alt: 'Logo',
+        src: 'img/linc.logo.color+black.alpha.notext.png',
       },
-      footer: {
-        style: 'light',
-        links: [
-          {
-            label: 'GitHub',
-            href: 'https://github.com/lincbrain/linc-dashboard',
-          },
-        ],
-        copyright: `Updated daily, last on <time datetime="${builtAt.toISOString()}">${builtOn}</time>`,
-      },
-      colorMode: {
-        defaultMode: 'light',
-        disableSwitch: false,
-        respectPrefersColorScheme: true,
-      },
-      prism: {
-        theme: prismThemes.github,
-      },
-    }),
+      items: [
+        // Active on the home page only
+        {to: '/', label: 'Overview', position: 'right', activeBaseRegex: `^${baseUrl}$`},
+        {to: '/datasets', label: 'Datasets', position: 'right'},
+        {to: '/files', label: 'Files', position: 'right'},
+        {to: 'https://gallery.lincbrain.org', label: 'LINC Gallery ↗', position: 'right'},
+        {to: 'https://connects.mgh.harvard.edu/', label: 'Project homepage ↗', position: 'right'},
+      ],
+    },
+    footer: {
+      style: 'light',
+      links: [
+        {
+          label: 'GitHub',
+          href: 'https://github.com/lincbrain/linc-dashboard',
+        },
+      ],
+      copyright: `Updated daily, last on <time datetime="${builtAt.toISOString()}">${builtOn}</time>`,
+    },
+    colorMode: {
+      respectPrefersColorScheme: true,
+    },
+  },
 };
 
 export default config;

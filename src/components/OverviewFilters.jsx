@@ -4,27 +4,56 @@ import Segmented from "./Segmented";
 import { emptyFilters, hasFilters } from "./useUrlFilters";
 import { modalityColor } from "./modalities";
 import { ARCHIVES, formatBytes } from "./data";
-import { OVERVIEW_FILTERS, applyFilters, basisOf, sizeBy } from "./overview";
+import { OVERVIEW_FILTERS, basisOf } from "./overview";
 import styles from "./Filters.module.css";
 
-export default function OverviewFilters({ files, filters, setFilters, deferred, modalities }) {
-  const update = (changes) => setFilters({ ...filters, ...changes });
-  const basis = basisOf(deferred);
-  const selectedBasis = basisOf(filters);
+const DATE_OPTIONS = [
+  { value: "", label: "Produced" },
+  { value: "uploaded", label: "Uploaded" },
+];
 
-  // Option sizes within the other filters
-  const modalitySizes = useMemo(
-    () => sizeBy(applyFilters(files, { ...deferred, Modality: [] }, basis), "Modality"),
-    [files, deferred, basis],
+// Produced or uploaded, from and to; also on the Files page
+export function DateFilters({ files, filters, onChange }) {
+  const basis = basisOf(filters);
+  const months = useMemo(() => {
+    const set = new Set();
+    for (const file of files) if (file[basis]) set.add(file[basis].slice(0, 7));
+    return [...set].sort();
+  }, [files, basis]);
+
+  return (
+    <>
+      <div className={styles.filter}>
+        <span>Dates</span>
+        <Segmented
+          label="Dates"
+          value={filters.Dates === "uploaded" ? "uploaded" : ""}
+          onChange={(Dates) => onChange({ Dates })}
+          options={DATE_OPTIONS}
+        />
+      </div>
+      {[
+        ["From", "Earliest"],
+        ["To", "Latest"],
+      ].map(([key, allLabel]) => (
+        <label key={key} className={`${styles.filter} ${styles.month}`}>
+          <span>{key}</span>
+          <select value={filters[key]} onChange={(event) => onChange({ [key]: event.target.value })}>
+            <option value="">{allLabel}</option>
+            {months.map((month) => (
+              <option key={month} value={month}>
+                {month}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </>
   );
-  const archiveSizes = useMemo(
-    () => sizeBy(applyFilters(files, { ...deferred, Archive: "" }, basis), "Archive"),
-    [files, deferred, basis],
-  );
-  const monthOptions = useMemo(
-    () => [...new Set(files.map((file) => file[selectedBasis].slice(0, 7)).filter(Boolean))].sort(),
-    [files, selectedBasis],
-  );
+}
+
+export default function OverviewFilters({ files, filters, setFilters, modalities, modalitySizes, archiveSizes }) {
+  const update = (changes) => setFilters({ ...filters, ...changes });
 
   return (
     <div className={styles.toolbar}>
@@ -50,40 +79,7 @@ export default function OverviewFilters({ files, filters, setFilters, deferred, 
           ))}
         </select>
       </label>
-      <div className={styles.filter}>
-        <span>Dates</span>
-        <Segmented
-          label="Dates"
-          value={filters.Dates === "uploaded" ? "uploaded" : ""}
-          onChange={(Dates) => update({ Dates })}
-          options={[
-            { value: "", label: "Produced" },
-            { value: "uploaded", label: "Uploaded" },
-          ]}
-        />
-      </div>
-      <label className={`${styles.filter} ${styles.month}`}>
-        <span>From</span>
-        <select value={filters.From} onChange={(event) => update({ From: event.target.value })}>
-          <option value="">Earliest</option>
-          {monthOptions.map((month) => (
-            <option key={month} value={month}>
-              {month}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className={`${styles.filter} ${styles.month}`}>
-        <span>To</span>
-        <select value={filters.To} onChange={(event) => update({ To: event.target.value })}>
-          <option value="">Latest</option>
-          {monthOptions.map((month) => (
-            <option key={month} value={month}>
-              {month}
-            </option>
-          ))}
-        </select>
-      </label>
+      <DateFilters files={files} filters={filters} onChange={update} />
       {hasFilters(OVERVIEW_FILTERS, filters) && (
         <button type="button" className={styles.clear} onClick={() => setFilters(emptyFilters(OVERVIEW_FILTERS))}>
           Clear filters

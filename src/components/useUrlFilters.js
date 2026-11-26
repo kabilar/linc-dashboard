@@ -5,7 +5,7 @@ import { useHistory, useLocation } from "@docusaurus/router";
 const URL_SYNC_DELAY_MS = 500;
 
 // schema: { Modality: { param: "modality", multi: true }, ... }
-export function readFilters(schema, search) {
+function readFilters(schema, search) {
   const params = new URLSearchParams(search);
   return Object.fromEntries(
     Object.entries(schema).map(([key, { param, multi }]) => [

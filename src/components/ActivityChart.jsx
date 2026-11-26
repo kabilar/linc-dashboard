@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
+import ChartCard from "./ChartCard";
 import Segmented from "./Segmented";
-import SectionHeading from "./SectionHeading";
 import { ModalityLegend, modalityColor } from "./modalities";
-import { formatBytes, formatNumber } from "./data";
+import { countOf, formatBytes, formatNumber } from "./data";
 import { formatCompact, longMonth, niceStep, shortMonth, useElementWidth } from "./charts";
 import styles from "./Charts.module.css";
 
@@ -11,21 +11,22 @@ const MARGIN = { top: 12, right: 16, bottom: 40, left: 60 };
 const FILL_OPACITY = 0.18;
 
 const METRICS = {
-  files: { label: "Files", value: (cell) => cell.files, format: formatNumber, tick: formatCompact },
   size: {
     label: "Size",
     value: (cell) => cell.bytes,
     format: formatBytes,
     tick: (bytes) => (bytes === 0 ? "0" : formatBytes(bytes).replace(".0 ", " ")),
   },
+  files: { label: "Files", value: (cell) => cell.files, format: formatNumber, tick: formatCompact },
 };
+const METRIC_OPTIONS = Object.entries(METRICS).map(([value, { label }]) => ({ value, label }));
 
 function linePath(points) {
   return points.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join("");
 }
 
 // Running total of bytes (or files) by month, stacked by modality
-export default function ActivityChart({ files, basis, months, modalities }) {
+export default memo(function ActivityChart({ files, basis, months, modalities }) {
   const [metric, setMetric] = useState("size");
   const [active, setActive] = useState(null);
   const plotRef = useRef(null);
@@ -56,19 +57,18 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const cell = byMonth.get(month).get(modality);
     return cell ? value(cell) : 0;
   };
-  const running = Object.fromEntries(shown.map((modality) => [modality, []]));
-  const sums = Object.fromEntries(shown.map((modality) => [modality, 0]));
-  months.forEach((month, i) => {
-    for (const modality of shown) {
-      sums[modality] += valueOf(month, modality);
-      running[modality][i] = sums[modality];
-    }
-  });
+  const running = Object.fromEntries(
+    shown.map((modality) => {
+      let sum = 0;
+      return [modality, months.map((month) => (sum += valueOf(month, modality)))];
+    }),
+  );
   const totals = months.map((_, i) => shown.reduce((sum, modality) => sum + running[modality][i], 0));
   const added = months.map((month) => shown.reduce((sum, modality) => sum + valueOf(month, modality), 0));
   const verb = basis.toLowerCase();
 
   let chart = null;
+  let tooltip = null;
   if (width > 0 && shown.length > 0) {
     const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
     const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -81,6 +81,8 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const spacing = count > 1 ? innerWidth / (count - 1) : innerWidth;
     const x = (i) => MARGIN.left + (count > 1 ? i * spacing : innerWidth / 2);
     const labelEvery = spacing >= 30 ? 1 : spacing >= 12 ? 3 : 6;
+
+    const marker = count === 1 ? 0 : active;
 
     let lower = months.map(() => 0);
     const layers = shown.map((modality) => {
@@ -160,34 +162,32 @@ export default function ActivityChart({ files, basis, months, modalities }) {
             />
           ))}
 
-        {(active !== null || count === 1) && (() => {
-          const i = count === 1 ? 0 : active;
-          return (
-            <g pointerEvents="none">
-              {active !== null && (
-                <line x1={x(i)} x2={x(i)} y1={MARGIN.top} y2={MARGIN.top + innerHeight} stroke="var(--ifm-color-emphasis-500)" />
-              )}
-              {[...layers]
-                .reverse()
-                .filter(({ modality }) => running[modality][i] > 0)
-                .map(({ modality, upper }) => (
-                  <circle
-                    key={modality}
-                    cx={x(i)}
-                    cy={y(upper[i])}
-                    r="4"
-                    fill={modalityColor(modality)}
-                    stroke="var(--ifm-background-color)"
-                    strokeWidth="2"
-                  />
-                ))}
-            </g>
-          );
-        })()}
+        {/* Points, always shown for a single month */}
+        {marker !== null && (
+          <g pointerEvents="none">
+            {active !== null && (
+              <line x1={x(marker)} x2={x(marker)} y1={MARGIN.top} y2={MARGIN.top + innerHeight} stroke="var(--ifm-color-emphasis-500)" />
+            )}
+            {[...layers]
+              .reverse()
+              .filter(({ modality }) => running[modality][marker] > 0)
+              .map(({ modality, upper }) => (
+                <circle
+                  key={modality}
+                  cx={x(marker)}
+                  cy={y(upper[marker])}
+                  r="4"
+                  fill={modalityColor(modality)}
+                  stroke="var(--ifm-background-color)"
+                  strokeWidth="2"
+                />
+              ))}
+          </g>
+        )}
 
         {months.map((month, i) => {
-          const left = count > 1 ? Math.max(MARGIN.left, x(i) - spacing / 2) : MARGIN.left;
-          const right = count > 1 ? Math.min(MARGIN.left + innerWidth, x(i) + spacing / 2) : MARGIN.left + innerWidth;
+          const left = Math.max(MARGIN.left, x(i) - spacing / 2);
+          const right = Math.min(MARGIN.left + innerWidth, x(i) + spacing / 2);
           const parts = shown.filter((modality) => running[modality][i] > 0);
           return (
             <g
@@ -221,77 +221,55 @@ export default function ActivityChart({ files, basis, months, modalities }) {
       const rows = shown.map((modality) => [modality, running[modality][active]]).filter(([, v]) => v > 0);
       const position = x(active);
       const onRight = position < width * 0.6;
-      chart = (
-        <>
-          {chart}
-          <div
-            className={styles.tooltip}
-            style={{
-              left: onRight ? position + 12 : undefined,
-              right: onRight ? undefined : width - position + 12,
-              top: MARGIN.top,
-            }}>
-            <div className={styles.tooltipTitle}>By the end of {longMonth(month)}</div>
-            {rows.length === 0 && <div className={styles.hint}>Nothing {verb} yet</div>}
-            {rows.map(([modality, v]) => (
-              <div key={modality} className={styles.tooltipRow}>
-                <span className={styles.key} style={{ background: modalityColor(modality) }} />
-                <strong>{format(v)}</strong>
-                <span>{modality}</span>
-              </div>
-            ))}
-            {rows.length > 0 && (
-              <div className={`${styles.tooltipRow} ${styles.tooltipTotal}`}>
-                <span className={styles.key} />
-                <strong>{format(totals[active])}</strong>
-                <span>{metric === "files" ? "files" : "in total"}</span>
-              </div>
-            )}
-            <div className={styles.hint}>
-              {format(added[active])} {verb} in {longMonth(month).split(" ")[0]}
+      tooltip = (
+        <div
+          className={styles.tooltip}
+          style={{
+            left: onRight ? position + 12 : undefined,
+            right: onRight ? undefined : width - position + 12,
+            top: MARGIN.top,
+          }}>
+          <div className={styles.tooltipTitle}>By the end of {longMonth(month)}</div>
+          {rows.length === 0 && <div className={styles.hint}>Nothing {verb} yet</div>}
+          {rows.map(([modality, v]) => (
+            <div key={modality} className={styles.tooltipRow}>
+              <span className={styles.key} style={{ background: modalityColor(modality) }} />
+              <strong>{format(v)}</strong>
+              <span>{modality}</span>
             </div>
+          ))}
+          {rows.length > 0 && (
+            <div className={`${styles.tooltipRow} ${styles.tooltipTotal}`}>
+              <span className={styles.key} />
+              <strong>{format(totals[active])}</strong>
+              <span>{metric === "files" ? "files" : "in total"}</span>
+            </div>
+          )}
+          <div className={styles.hint}>
+            {format(added[active])} {verb} in {longMonth(month).split(" ")[0]}
           </div>
-        </>
+        </div>
       );
     }
   }
 
   return (
-    <section className={styles.card}>
-      <div className={styles.header}>
-        <SectionHeading as="h3" id="data-over-time" className={styles.title}>
-          {`Data ${verb} over time`}
-        </SectionHeading>
-        <div className={styles.toggles}>
-          <Segmented
-            small
-            label="Measure"
-            value={metric}
-            onChange={setMetric}
-            options={[
-              { value: "size", label: "Size" },
-              { value: "files", label: "Files" },
-            ]}
-          />
-        </div>
-      </div>
-
+    <ChartCard
+      id="data-over-time"
+      title={`Data ${verb} over time`}
+      actions={<Segmented small label="Measure" value={metric} onChange={setMetric} options={METRIC_OPTIONS} />}>
       {shown.length > 0 && <ModalityLegend names={shown} className={styles.legend} />}
       {/* Always mounted, to measure its width */}
       <div className={styles.plot} ref={plotRef} onPointerLeave={() => setActive(null)}>
-        {shown.length === 0 ? (
-          <div className={styles.empty}>No dated files match these filters.</div>
-        ) : (
-          chart
-        )}
+        {shown.length === 0 ? <div className={styles.empty}>No dated files match these filters.</div> : chart}
+        {tooltip}
       </div>
 
       {undated > 0 && (
         <p className={styles.note}>
-          {formatNumber(undated)} {undated === 1 ? "file has" : "files have"} no {verb} date yet and{" "}
-          {undated === 1 ? "isn't" : "aren't"} shown.
+          {countOf(undated, "file has", "files have")} no {verb} date yet and {undated === 1 ? "isn't" : "aren't"} shown.
         </p>
       )}
-    </section>
+    </ChartCard>
   );
-}
+});

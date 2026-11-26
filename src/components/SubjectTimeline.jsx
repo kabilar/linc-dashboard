@@ -1,14 +1,13 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useHistory } from "@docusaurus/router";
-import useBaseUrl from "@docusaurus/useBaseUrl";
+import { useBaseUrlUtils } from "@docusaurus/useBaseUrl";
+import ChartCard from "./ChartCard";
 import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } from "./modalities";
-import { compareLabels, formatNumber } from "./data";
+import { compareLabels, countOf } from "./data";
 import { dayValue, monthEndValue, shortMonth, useElementWidth } from "./charts";
-import SectionHeading from "./SectionHeading";
-import { compareSubjects, filesQuery } from "./overview";
+import { keepInside } from "./popover";
+import { NOT_SUBJECTS, compareSubjects, filesLink } from "./overview";
 import styles from "./Charts.module.css";
-
-const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 
 const LABEL_WIDTH = 170;
 const RIGHT = 16;
@@ -21,7 +20,7 @@ const MIN_BAR_WIDTH = 8;
 const DAY = 24 * 60 * 60 * 1000;
 
 // When each subject's data was produced (or uploaded), by modality
-export default function SubjectTimeline({ files, basis, months, includeUnknown, linkFilters = {} }) {
+export default memo(function SubjectTimeline({ files, basis, months, includeUnknown, linkFilters = {} }) {
   const scrollRef = useRef(null);
   const containerWidth = useElementWidth(scrollRef);
   const [active, setActive] = useState(null);
@@ -29,17 +28,14 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
 
   // Keep the tooltip within the chart's width
   useLayoutEffect(() => {
-    const tooltip = tooltipRef.current;
     const frame = scrollRef.current?.parentElement;
-    if (!tooltip || !frame) return;
-    tooltip.style.transform = "";
-    const t = tooltip.getBoundingClientRect();
-    const f = frame.getBoundingClientRect();
-    const shift = t.left < f.left ? f.left - t.left : t.right > f.right ? f.right - t.right : 0;
-    if (shift) tooltip.style.transform = `translateX(${shift}px)`;
+    if (tooltipRef.current && frame) {
+      const { left, right } = frame.getBoundingClientRect();
+      keepInside(tooltipRef.current, left, right);
+    }
   }, [active]);
   const history = useHistory();
-  const filesPath = useBaseUrl("/files");
+  const { withBaseUrl } = useBaseUrlUtils();
 
   const lanes = useMemo(() => {
     const bySubject = new Map();
@@ -82,7 +78,7 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   const verb = basis.toLowerCase();
 
   function open(item) {
-    history.push(`${filesPath}?${filesQuery(linkFilters, { Modality: [item.modality] }, { subject: item.subject })}`);
+    history.push(withBaseUrl(filesLink(linkFilters, { Modality: [item.modality] }, { subject: item.subject })));
   }
 
   let plot = null;
@@ -125,8 +121,8 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
                 className={styles.hit}
                 tabIndex={0}
                 role="link"
-                aria-label={`${item.subject}, ${item.modality}: ${verb} ${range}, ${formatNumber(item.files)} files${
-                  item.samples.size ? `, ${formatNumber(item.samples.size)} samples` : ""
+                aria-label={`${item.subject}, ${item.modality}: ${verb} ${range}, ${countOf(item.files, "file")}${
+                  item.samples.size ? `, ${countOf(item.samples.size, "sample")}` : ""
                 }. View files.`}
                 onPointerEnter={() => setActive(key)}
                 onFocus={() => setActive(key)}
@@ -140,7 +136,7 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
                 }}>
                 <rect
                   className={styles.focusRing}
-                  x={Math.min(x1, (x1 + x2) / 2 - 8) - 2}
+                  x={Math.min(x1, center - 8) - 2}
                   y={cy - 6}
                   width={Math.max(x2 - x1, 16) + 4}
                   height={ROW_HEIGHT}
@@ -148,7 +144,7 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
                   fill="transparent"
                 />
                 {isDot ? (
-                  <circle cx={(x1 + x2) / 2} cy={cy} r="4.5" fill={modalityColor(item.modality)} stroke="var(--ifm-background-color)" strokeWidth="2" />
+                  <circle cx={center} cy={cy} r="4.5" fill={modalityColor(item.modality)} stroke="var(--ifm-background-color)" strokeWidth="2" />
                 ) : (
                   <rect x={x1} y={cy - 4} width={x2 - x1} height="8" rx="4" fill={modalityColor(item.modality)} />
                 )}
@@ -217,10 +213,9 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
             <strong>{item.first === item.last ? item.first : `${item.first} – ${item.last}`}</strong>
           </div>
           <div>
-            {formatNumber(item.files)} {item.files === 1 ? "file" : "files"}
-            {item.samples.size > 0 &&
-              ` · ${formatNumber(item.samples.size)} ${item.samples.size === 1 ? "sample" : "samples"}`}{" "}
-            · {[...item.datasets].sort(compareLabels).join(", ")}
+            {countOf(item.files, "file")}
+            {item.samples.size > 0 && ` · ${countOf(item.samples.size, "sample")}`} ·{" "}
+            {[...item.datasets].sort(compareLabels).join(", ")}
           </div>
           <div className={styles.hint}>Select to view files</div>
         </div>
@@ -229,15 +224,10 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   }
 
   return (
-    <section className={styles.card}>
-      <div className={styles.header}>
-        <SectionHeading as="h3" id="subject-timeline" className={styles.title}>
-          Subject timeline
-        </SectionHeading>
-        <span className={styles.description}>
-          When each subject's data was {verb}, by modality. Select a bar to see its files.
-        </span>
-      </div>
+    <ChartCard
+      id="subject-timeline"
+      title="Subject timeline"
+      description={`When each subject's data was ${verb}, by modality. Select a bar to see its files.`}>
       {lanes.length > 0 && <ModalityLegend names={legendNames} className={styles.legend} />}
       <div className={styles.frame}>
         <div className={styles.scroll} ref={scrollRef} onPointerLeave={() => setActive(null)}>
@@ -248,6 +238,6 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
       {!includeUnknown && (
         <p className={styles.note}>Files of unknown modality are left out unless “Unknown” is selected in the Modality filter.</p>
       )}
-    </section>
+    </ChartCard>
   );
-}
+});

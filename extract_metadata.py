@@ -28,6 +28,9 @@ BIDS_VALID = 'Valid'
 BIDS_INVALID = 'Invalid'
 BIDS_NOT_VALIDATED = 'Not validated'
 
+UNKNOWN = 'Unknown'
+NOT_APPLICABLE = 'n/a'
+
 # See curation/README.md
 MAPPINGS_CSV = './curation/mappings.csv'
 UNMAPPED_CSV = './curation/unmapped.csv'
@@ -78,15 +81,19 @@ DATASET_LEVEL_FILES = {'dataset_description.json', 'participants.tsv', 'particip
                        'changes', '.bidsignore'}
 
 
+def retrying_session(backoff_factor, pool_size):
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=backoff_factor, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=pool_size))
+    return session
+
+
 class ArchiveClient:
     """DANDI API client (lincbrain.org runs the same API)."""
 
     def __init__(self, api_url, token=None):
         self.api_url = api_url
-        self.session = requests.Session()
-        retries = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
-        workers = max(PAGE_WORKERS, METADATA_WORKERS, ZARR_WORKERS)
-        self.session.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=workers))
+        self.session = retrying_session(2, max(PAGE_WORKERS, METADATA_WORKERS, ZARR_WORKERS))
         if token:
             self.session.headers['Authorization'] = f'token {token}'
 
@@ -98,7 +105,9 @@ class ArchiveClient:
         response.raise_for_status()
 
     def get(self, path, params=None):
-        response = self.session.get(f'{self.api_url}{path}', params=params, timeout=120)
+        """An API path, or a full URL such as a page's next link."""
+        url = path if path.startswith('https://') else f'{self.api_url}{path}'
+        response = self.session.get(url, params=params, timeout=120)
         response.raise_for_status()
         return response.json()
 
@@ -121,9 +130,7 @@ class ArchiveClient:
             return
 
         while next_url:
-            response = self.session.get(next_url, timeout=120)
-            response.raise_for_status()
-            page = response.json()
+            page = self.get(next_url)
             yield from page['results']
             next_url = page['next']
 
@@ -134,9 +141,7 @@ class StorageReader:
     def __init__(self, client):
         self.client = client
         # Never sends the API key to the storage
-        self.storage = requests.Session()
-        retries = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
-        self.storage.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=ZARR_WORKERS))
+        self.storage = retrying_session(1, ZARR_WORKERS)
 
     def read_json(self, zarr_id, storage_url, name):
         """A Zarr archive's JSON file, or None if missing."""
@@ -175,7 +180,6 @@ class BidsValidator:
         import bidsschematools.rules
         import bidsschematools.schema  # noqa: F401 (used by regexify_all)
         regexes, schema = bidsschematools.rules.regexify_all()
-        self.bids_version = schema.bids_version
         self.patterns = [re.compile(entry['regex']) for entry in regexes]
         # e.g. micr -> OCT -> .ome.zarr/
         self.extensions = {}
@@ -197,17 +201,14 @@ class BidsValidator:
         if (parts[0] in BIDS_UNVALIDATED_FOLDERS or any(part.startswith('.') for part in parts)
                 or is_bidsignored(path, ignore)):
             return BIDS_NOT_VALIDATED
-        if root and path.startswith(root):
-            path = path[len(root):]
+        path = path.removeprefix(root)
         # OME-Zarr archives are folders
         target = f'{path}/' if is_directory else path
         return BIDS_VALID if any(pattern.match(target) for pattern in self.patterns) else BIDS_INVALID
 
     def issue(self, path, is_directory=False, root=''):
         """Why an invalid path is not valid BIDS."""
-        if root and path.startswith(root):
-            path = path[len(root):]
-        parts = path.split('/')
+        parts = path.removeprefix(root).split('/')
         if len(parts) == 1:
             return 'Not a BIDS file at the top level'
         if not re.fullmatch(r'sub-[0-9a-zA-Z+]+', parts[0]):
@@ -330,7 +331,7 @@ def storage_url(metadata):
     return next((url for url in metadata.get('contentUrl') or [] if '/api/' not in url), None)
 
 
-def add_ome_zarr_versions(archive, client, rows, cache):
+def add_ome_zarr_versions(archive, reader, rows, cache):
     """e.g. "OME-Zarr" -> "OME-Zarr v0.5"."""
     zarrs = [row for row in rows if row['Extension'] == OME_ZARR and row['_zarr']]
     pending = []
@@ -340,8 +341,6 @@ def add_ome_zarr_versions(archive, client, rows, cache):
             row['Extension'] = cached
         else:
             pending.append(row)
-
-    reader = StorageReader(client)
 
     def read(row):
         try:
@@ -366,12 +365,15 @@ def add_ome_zarr_versions(archive, client, rows, cache):
         warn(f'{archive}: {unknown} OME-Zarr archives could not be read')
 
 
+def read_strings(path, **options):
+    """A CSV's values as strings, or None if there is no such file."""
+    return pd.read_csv(path, dtype=str, keep_default_na=False, **options) if os.path.exists(path) else None
+
+
 def load_cache(path=ASSETS_CSV):
     """The previous run's OME-Zarr extensions."""
-    if not os.path.exists(path):
-        return {}
-    previous = pd.read_csv(path, dtype=str, keep_default_na=False)
-    if 'Archive' not in previous or 'Uploaded' not in previous:
+    previous = read_strings(path, usecols=['Archive', 'Dataset', 'Path', 'Extension', 'Uploaded'])
+    if previous is None:
         return {}
     previous = previous[previous['Extension'].str.startswith(f'{OME_ZARR} v')]
     return {(row.Archive, row.Dataset, row.Path, row.Uploaded): row.Extension
@@ -386,6 +388,12 @@ def is_access_error(error):
     return error.response is not None and error.response.status_code in (401, 403, 404)
 
 
+def bids_label(name, entity, separators='_'):
+    """The label of a BIDS entity in a name, e.g. MR256 for sub-MR256_photo.tif; labels are alphanumeric."""
+    match = re.search(rf'(?:^|[{separators}]){entity}-([A-Za-z0-9]+)', name)
+    return match.group(1) if match else None
+
+
 def parse_subject(path):
     parts = path.split('/')
 
@@ -394,41 +402,34 @@ def parse_subject(path):
         if part.startswith('sub-') and '_' not in part and len(part) > len('sub-'):
             return part[len('sub-'):]
 
-    # Labels are alphanumeric: sub-MF284-sample-slice036_... gives MF284
+    # e.g. sub-MF284-sample-slice036_... gives MF284
     for part in parts:
-        match = re.search(r'(?:^|_)sub-([A-Za-z0-9]+)', part)
-        if match:
-            return match.group(1)
+        label = bids_label(part, 'sub')
+        if label:
+            return label
 
     if parts[-1].lower() in DATASET_LEVEL_FILES:
-        return 'n/a'
+        return NOT_APPLICABLE
 
-    return 'Unknown'
+    return UNKNOWN
 
 
 def parse_sample(path):
     """The BIDS sample- label of the file name, or else of the nearest folder."""
     parts = path.split('/')
-    match = re.search(r'(?:^|_)sample-([A-Za-z0-9]+)', parts[-1])
-    if match:
-        return match.group(1)
-    for part in reversed(parts[:-1]):
-        # e.g. sub-MF284-sample-slice079
-        match = re.search(r'(?:^|[_-])sample-([A-Za-z0-9]+)', part)
-        if match:
-            return match.group(1)
-    return ''
+    # Folders such as sub-MF284-sample-slice079 also separate entities with -
+    labels = [bids_label(parts[-1], 'sample')] + [bids_label(part, 'sample', '_-') for part in reversed(parts[:-1])]
+    return next((label for label in labels if label), '')
 
 
 def parse_stain(path):
     """The BIDS stain- label of the file name."""
-    match = re.search(r'(?:^|_)stain-([A-Za-z0-9]+)', path.split('/')[-1])
-    return match.group(1) if match else ''
+    return bids_label(path.split('/')[-1], 'stain') or ''
 
 
 def parse_modality(path):
     filename = path.split('/')[-1].lower()
-    return next((value for key, value in modalities.items() if key in filename), 'Unknown')
+    return next((value for key, value in modalities.items() if key in filename), UNKNOWN)
 
 
 COMPRESSION_SUFFIXES = {'.gz', '.bz2', '.xz', '.zst'}
@@ -489,6 +490,7 @@ def list_datasets(archive, client, config):
 
 def extract_assets(archive, client, config, cache=None):
     datasets = list_datasets(archive, client, config)
+    reader = StorageReader(client)
 
     latest_assets = []
     for identifier in sorted(datasets):
@@ -532,16 +534,20 @@ def extract_assets(archive, client, config, cache=None):
                 "_zarr": asset.get('zarr'),
                 "_storage": storage_url(metadata),
             })
-        add_bids_status(latest_assets[first_row:], assets, metadatas, StorageReader(client))
+        add_bids_status(latest_assets[first_row:], assets, metadatas, reader)
         add_derivatives_notes(latest_assets[first_row:])
 
-    add_ome_zarr_versions(archive, client, latest_assets, cache or {})
+    add_ome_zarr_versions(archive, reader, latest_assets, cache or {})
     for row in latest_assets:
         del row['_zarr'], row['_storage']
 
     names = pd.DataFrame([{"Archive": archive, "Dataset": identifier, "Name": name}
                           for identifier, name in datasets.items()])
     return pd.DataFrame(latest_assets), names
+
+
+def gigabytes(sizes):
+    return round(sizes.sum() / 1000**3, 2)
 
 
 def join_unique(values):
@@ -571,7 +577,7 @@ def summarize_datasets(df, df_names):
     df_datasets = (df.assign(_sample=sample_keys(df))
                      .groupby(['Archive', 'Dataset'], sort=False)
                      .agg(**{"Modality": ("Modality", join_unique),
-                             "Size (GB)": ("Size (bytes)", lambda sizes: round(sizes.sum()/(1000**3), 2)),
+                             "Size (GB)": ("Size (bytes)", gigabytes),
                              "Subject": ("Subject", join_unique),
                              "Samples": ("_sample", count_samples),
                              "Extension": ("Extension", join_unique),
@@ -584,29 +590,23 @@ def summarize_datasets(df, df_names):
 
 
 def summarize_modalities(df):
-    local_modalities = list(dict.fromkeys(modalities.values())) + ['Unknown']
-
-    df_modalities = pd.DataFrame(columns=["Modality",
-                                          "Size (GB)",
-                                          "Subject",
-                                          "Samples",
-                                          "Extension"])
-    keys = sample_keys(df)
-    for value in local_modalities:
-        df_modalities.loc[len(df_modalities)] = [value,
-                    round(sum(df[(df['Modality'] == value)]['Size (bytes)'])/(1000**3),2),
-                    ','.join(df[(df['Modality'] == value)]['Subject'].unique()),
-                    count_samples(keys[df['Modality'] == value]),
-                    ','.join(df[(df['Modality'] == value)]['Extension'].unique())]
-
-    return df_modalities
+    """Every modality, including those without files."""
+    order = list(modalities.values()) + [UNKNOWN]
+    return (df.assign(Modality=pd.Categorical(df['Modality'], categories=order), _sample=sample_keys(df))
+              .groupby('Modality', observed=False)
+              .agg(**{"Size (GB)": ("Size (bytes)", gigabytes),
+                      "Subject": ("Subject", join_unique),
+                      "Samples": ("_sample", count_samples),
+                      "Extension": ("Extension", join_unique)})
+              .reset_index())
 
 
 def load_mappings(path=MAPPINGS_CSV):
     """Curated mappings, most specific folders first."""
-    if not os.path.exists(path):
+    mappings = read_strings(path)
+    if mappings is None:
         return []
-    mappings = pd.read_csv(path, dtype=str, keep_default_na=False).to_dict('records')
+    mappings = mappings.to_dict('records')
     known = set(modalities.values())
     for mapping in mappings:
         mapping['Folder'] = mapping['Folder'].strip('/')
@@ -619,7 +619,6 @@ def apply_mappings(df, mappings):
     """Fill unknown modalities and subjects from the mappings, and add their notes."""
     records = df.to_dict('records')
     for record in records:
-        notes = record['Note'].split(NOTE_SEPARATOR) if record['Note'] else []
         for mapping in mappings:
             if (mapping['Archive'], mapping['Dataset']) != (record['Archive'], record['Dataset']):
                 continue
@@ -627,51 +626,43 @@ def apply_mappings(df, mappings):
                 continue
             applied = not (mapping['Modality'] or mapping['Subject'])
             for field in ('Modality', 'Subject'):
-                if mapping[field] and record[field] == 'Unknown':
+                if mapping[field] and record[field] == UNKNOWN:
                     record[field] = mapping[field]
                     applied = True
-            if applied and mapping['Note'] and mapping['Note'] not in notes:
-                notes.append(mapping['Note'])
-        record['Note'] = NOTE_SEPARATOR.join(notes)
+            if applied and mapping['Note']:
+                add_note(record, mapping['Note'])
     return pd.DataFrame(records, columns=df.columns)
 
 
 def load_sample_names(path=SAMPLES_CSV):
     """{(archive, dataset, subject or '', label): name}"""
-    if not os.path.exists(path):
+    rows = read_strings(path)
+    if rows is None:
         return {}
-    rows = pd.read_csv(path, dtype=str, keep_default_na=False).to_dict('records')
-    return {(row['Archive'], row['Dataset'], row['Subject'], row['Sample']): row['Same as'] for row in rows}
+    return {(row['Archive'], row['Dataset'], row['Subject'], row['Sample']): row['Same as']
+            for row in rows.to_dict('records')}
 
 
 def apply_sample_names(df, names):
     """Rename samples as listed in curation/samples.csv."""
-    if not names:
-        return df
+    def rename(archive, dataset, subject, sample):
+        if not sample:
+            return sample
+        return names.get((archive, dataset, subject, sample)) or names.get((archive, dataset, '', sample)) or sample
 
-    def rename(row):
-        for subject in (row['Subject'], ''):
-            name = names.get((row['Archive'], row['Dataset'], subject, row['Sample']))
-            if name:
-                return name
-        return row['Sample']
-
-    has_sample = df['Sample'] != ''
-    df = df.copy()
-    df.loc[has_sample, 'Sample'] = df[has_sample].apply(rename, axis=1)
-    return df
+    return df.assign(Sample=[rename(*key) for key in zip(df['Archive'], df['Dataset'], df['Subject'], df['Sample'])])
 
 
 def summarize_unmapped(df, depth=UNMAPPED_FOLDER_DEPTH):
     """Folders with files of unknown modality or subject."""
-    unknown = df[(df['Modality'] == 'Unknown') | (df['Subject'] == 'Unknown')]
+    unknown = df[(df['Modality'] == UNKNOWN) | (df['Subject'] == UNKNOWN)]
     folders = unknown['Path'].map(lambda path: '/'.join(path.split('/')[:-1][:depth]))
     return (unknown.assign(Folder=folders)
                    .groupby(['Archive', 'Dataset', 'Folder'])
                    .agg(**{"Files": ("Path", "size"),
-                           "Size (GB)": ("Size (bytes)", lambda sizes: round(sizes.sum()/(1000**3), 2)),
-                           "Unknown modality": ("Modality", lambda values: int((values == 'Unknown').sum())),
-                           "Unknown subject": ("Subject", lambda values: int((values == 'Unknown').sum())),
+                           "Size (GB)": ("Size (bytes)", gigabytes),
+                           "Unknown modality": ("Modality", lambda values: int((values == UNKNOWN).sum())),
+                           "Unknown subject": ("Subject", lambda values: int((values == UNKNOWN).sum())),
                            "Example": ("Path", "first")})
                    .reset_index())
 

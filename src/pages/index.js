@@ -7,7 +7,7 @@ function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
     <header className="heroBanner">
-      <div className="heroContent">
+      <div className="container heroContent">
         <Heading as="h1" className="heroTitle">
           {siteConfig.title}
         </Heading>
@@ -20,14 +20,10 @@ function HomepageHeader() {
 export default function Home() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <Layout
-      title={`${siteConfig.title}`}
-      description={`${siteConfig.tagline}`}>
+    <Layout title={siteConfig.title} description={siteConfig.tagline}>
       <HomepageHeader />
       <main className="container">
-        <div className="viewer-card">
-          <Summary />
-        </div>
+        <Summary />
       </main>
     </Layout>
   );

@@ -9,8 +9,15 @@ export const ARCHIVES = {
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 const DEFAULT_ARCHIVE = "LINC";
 
-function archiveOf(row) {
+export const ASSETS_CSV = "lincbrain_assets.csv";
+export const DATASETS_CSV = "lincbrain_datasets.csv";
+
+export function archiveOf(row) {
   return ARCHIVES[row.Archive] ? row.Archive : DEFAULT_ARCHIVE;
+}
+
+export function compareArchives(a, b) {
+  return ARCHIVE_ORDER.indexOf(a) - ARCHIVE_ORDER.indexOf(b);
 }
 
 // Dataset identifier including its archive, e.g. "LINC:000003" or "DANDI:001412".
@@ -22,49 +29,45 @@ export function datasetSortKey(row) {
   return `${ARCHIVE_ORDER.indexOf(archiveOf(row))}:${row.Dataset}`;
 }
 
-// Values stay strings, e.g. "000003" keeps its zeros
-export function useCsv(fileName) {
-  const url = useBaseUrl(`/${fileName}`);
-  const [state, setState] = useState({ rows: null, error: null });
+// Parsed once per page load and shared by the pages; values stay strings, e.g. "000003" keeps its zeros
+const loadedRows = new Map();
+const loading = new Map();
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setState({ rows: null, error: null });
-
-    fetch(url, { signal: controller.signal })
+function loadCsv(url) {
+  if (!loading.has(url)) {
+    const promise = fetch(url)
       .then((response) => {
-        if (!response.ok) {
-          throw new Error(`${response.status} ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
         return response.text();
       })
       .then((text) => {
-        const { data } = Papa.parse(text, {
-          header: true,
-          skipEmptyLines: true,
-          dynamicTyping: false,
-        });
-        setState({ rows: data, error: null });
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          setState({ rows: null, error });
-        }
+        const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+        loadedRows.set(url, rows);
+        return rows;
       });
+    // Try again next time
+    promise.catch(() => loading.delete(url));
+    loading.set(url, promise);
+  }
+  return loading.get(url);
+}
 
-    return () => controller.abort();
+export function useCsv(fileName) {
+  const url = useBaseUrl(`/${fileName}`);
+  const [state, setState] = useState(() => ({ rows: loadedRows.get(url) ?? null, error: null }));
+
+  useEffect(() => {
+    let current = true;
+    loadCsv(url).then(
+      (rows) => current && setState({ rows, error: null }),
+      (error) => current && setState({ rows: null, error }),
+    );
+    return () => {
+      current = false;
+    };
   }, [url]);
 
   return { ...state, url };
-}
-
-// "a, b,c" -> ["a", "b", "c"]
-export function splitList(value) {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 export function toNumber(value) {
@@ -86,6 +89,11 @@ export function formatDecimal(value) {
   return decimalFormat.format(value);
 }
 
+// e.g. "1 file", "2 files"
+export function countOf(count, singular, plural = `${singular}s`) {
+  return `${formatNumber(count)} ${count === 1 ? singular : plural}`;
+}
+
 export const PRODUCED_DESCRIPTION = "The file's last-modified date when it was uploaded, in UTC.";
 export const UPLOADED_DESCRIPTION = "The date the file was uploaded to the archive, in UTC.";
 export const UPLOAD_RANGE_DESCRIPTION = "The first and last dates files were uploaded to the archive, in UTC.";
@@ -93,7 +101,9 @@ export const BIDS_DESCRIPTION =
   "Whether the file's path follows the BIDS specification: its folders, entities, suffix and extension, " +
   "checked against the BIDS schema. Files in derivatives/, sourcedata/ and code/, dot files and files " +
   "listed in .bidsignore are not validated.";
-export const BIDS_STATUSES = ["Valid", "Invalid", "Not validated"];
+export const VALID_BIDS = "Valid";
+export const INVALID_BIDS = "Invalid";
+export const BIDS_STATUSES = [VALID_BIDS, INVALID_BIDS, "Not validated"];
 
 // SI units, as in extract_metadata.py
 const BYTE_UNITS = ["B", "kB", "MB", "GB", "TB", "PB"];

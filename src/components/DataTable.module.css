@@ -12,23 +12,9 @@
   border-radius: 8px;
 }
 
-/* Override Infima's table styles */
 .table {
-  display: table;
   width: 100%;
-  margin: 0;
-  border-collapse: collapse;
   font-size: 0.875rem;
-}
-
-.table thead {
-  background-color: transparent;
-}
-
-.table tr,
-.table tr:nth-child(2n) {
-  background-color: transparent;
-  border: 0;
 }
 
 .table tbody tr:hover {
@@ -37,7 +23,6 @@
 
 .table th,
 .table td {
-  border: 0;
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
@@ -58,13 +43,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.caption {
-  caption-side: top;
-  text-align: left;
-  padding: 0 0 0.5rem;
-  color: var(--ifm-color-emphasis-700);
 }
 
 .header {
@@ -108,10 +86,15 @@
   color: var(--ifm-color-emphasis-500);
 }
 
+/* Also when stacked */
 .empty {
   text-align: center !important;
   padding: 2rem !important;
   color: var(--ifm-color-emphasis-700);
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .muted {
@@ -202,9 +185,8 @@
   cursor: pointer;
 }
 
-/* Stacked rows; Infima's overflow: auto would clip tooltips */
-.stacked .scroller,
-.stacked .table {
+/* Stacked rows; scrolling would clip tooltips */
+.stacked .scroller {
   overflow: visible;
 }
 

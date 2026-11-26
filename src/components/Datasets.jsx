@@ -1,43 +1,38 @@
 import { useMemo } from "react";
 import Link from "@docusaurus/Link";
-import DataTable, { ExpandableList } from "./DataTable";
+import DataTable, { ExpandableList, Missing } from "./DataTable";
 import LoadingState from "./LoadingState";
 import OverviewFilters from "./OverviewFilters";
 import { compareModalities } from "./modalities";
 import {
   useCsv,
-  splitList,
-  toNumber,
   formatDecimal,
   formatNumber,
   datasetId,
   datasetSortKey,
   datasetUrl,
+  ASSETS_CSV,
+  DATASETS_CSV,
+  INVALID_BIDS,
   UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
-import { INVALID_BIDS, filesQuery, sampleKey, useOverview } from "./overview";
+import { filesLink, sampleKey, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
-
-const sizeColumn = {
-  key: "Size (GB)",
-  label: "Size (GB)",
-  align: "right",
-  sortValue: (row) => toNumber(row["Size (GB)"]),
-  render: (row) => formatDecimal(toNumber(row["Size (GB)"])),
-};
 
 const listColumn = (key) => ({
   key,
   label: key,
-  render: (row) => <ExpandableList items={splitList(row[key])} />,
+  render: (row) => <ExpandableList items={row[key]} />,
 });
+
+const INITIAL_SORT = { key: "Dataset", direction: "asc" };
 
 const DATASET_COLUMNS = [
   {
     key: "Dataset",
     label: "Dataset",
-    className: styles.nowrap,
+    nowrap: true,
     sortValue: datasetSortKey,
     render: (row) => <Link to={datasetUrl(row)}>{datasetId(row)}</Link>,
   },
@@ -46,10 +41,15 @@ const DATASET_COLUMNS = [
     label: "Name",
     className: styles.name,
     stackHeading: true,
-    render: (row) => row.Name || <span className={styles.muted}>—</span>,
+    render: (row) => row.Name || <Missing />,
   },
   listColumn("Modality"),
-  sizeColumn,
+  {
+    key: "Size (GB)",
+    label: "Size (GB)",
+    align: "right",
+    render: (row) => formatDecimal(row["Size (GB)"]),
+  },
   listColumn("Subject"),
   {
     key: "Samples",
@@ -63,11 +63,11 @@ const DATASET_COLUMNS = [
     key: "Last uploaded",
     label: "Uploaded",
     description: UPLOAD_RANGE_DESCRIPTION,
-    className: styles.nowrap,
+    nowrap: true,
     render: (row) => {
       const first = row["First uploaded"];
       const last = row["Last uploaded"];
-      if (!last) return <span className={styles.muted}>—</span>;
+      if (!last) return <Missing />;
       return first && first !== last ? (
         <>
           {first} –<br />
@@ -84,13 +84,7 @@ const DATASET_COLUMNS = [
     description: "The number of the dataset's files whose paths do not follow the BIDS specification.",
     align: "right",
     render: (row) =>
-      row["Invalid BIDS"] > 0 ? (
-        <Link to={row.invalidBidsLink}>
-          {formatNumber(row["Invalid BIDS"])}
-        </Link>
-      ) : (
-        "0"
-      ),
+      row["Invalid BIDS"] > 0 ? <Link to={row.invalidBidsLink}>{formatNumber(row["Invalid BIDS"])}</Link> : "0",
   },
 ];
 
@@ -128,11 +122,11 @@ function summarizeDatasets(files, names) {
     Archive: group.Archive,
     Dataset: group.Dataset,
     Name: names.get(id) ?? "",
-    Modality: [...group.modalities].sort(compareModalities).join(","),
+    Modality: [...group.modalities].sort(compareModalities),
     "Size (GB)": group.bytes / 1000 ** 3,
-    Subject: [...group.subjects].join(","),
+    Subject: [...group.subjects],
     Samples: group.samples.size,
-    Extension: [...group.extensions].join(","),
+    Extension: [...group.extensions],
     "First uploaded": group.first,
     "Last uploaded": group.last,
     "Invalid BIDS": group.invalidBids,
@@ -147,7 +141,7 @@ function DatasetTable({ rows, names }) {
     () =>
       summarizeDatasets(filtered, names).map((row) => ({
         ...row,
-        invalidBidsLink: `/files?${filesQuery(deferred, {}, { dataset: datasetId(row), bids: INVALID_BIDS })}`,
+        invalidBidsLink: filesLink(deferred, {}, { dataset: datasetId(row), bids: INVALID_BIDS }),
       })),
     [filtered, names, deferred],
   );
@@ -160,7 +154,7 @@ function DatasetTable({ rows, names }) {
           columns={DATASET_COLUMNS}
           rows={datasetRows}
           rowKey={datasetId}
-          initialSort={{ key: "Dataset", direction: "asc" }}
+          initialSort={INITIAL_SORT}
           emptyMessage="No datasets match these filters."
           // Mobile layout: the table needs about 1,300px
           stackUpTo={996}
@@ -171,8 +165,8 @@ function DatasetTable({ rows, names }) {
 }
 
 export default function Datasets() {
-  const assets = useCsv("lincbrain_assets.csv");
-  const datasets = useCsv("lincbrain_datasets.csv");
+  const assets = useCsv(ASSETS_CSV);
+  const datasets = useCsv(DATASETS_CSV);
   const names = useMemo(
     () => new Map((datasets.rows ?? []).map((row) => [datasetId(row), row.Name ?? ""])),
     [datasets.rows],

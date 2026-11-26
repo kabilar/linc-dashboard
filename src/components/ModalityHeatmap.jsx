@@ -1,29 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
-import { splitList } from "./data";
-import { compareModalities } from "./modalities";
-import { compareSubjects, filesQuery } from "./overview";
+import { compareSubjects, filesLink } from "./overview";
 import styles from "./ModalityHeatmap.module.css";
 
 const NOT_A_SUBJECT = "n/a";
 
 // Modalities x subjects; each available cell links to its files
-export default function ModalityHeatmap({ rows, linkFilters = {} }) {
-  const filesUrl = (modality, subject) => `/files?${filesQuery(linkFilters, { Modality: [modality] }, { subject })}`;
+export default memo(function ModalityHeatmap({ subjectsByModality, linkFilters = {} }) {
   const containerRef = useRef(null);
   const [active, setActive] = useState(null);
 
   const { modalities, subjects } = useMemo(() => {
-    const modalities = rows
-      .map((row) => ({
-        name: row.Modality,
-        subjects: new Set(splitList(row.Subject).filter((subject) => subject !== NOT_A_SUBJECT)),
-      }))
-      .sort((a, b) => compareModalities(a.name, b.name));
-    const subjects = [...new Set(modalities.flatMap((modality) => [...modality.subjects]))].sort((a, b) => compareSubjects(a, b));
+    const modalities = [...subjectsByModality].map(([name, subjects]) => ({ name, subjects }));
+    const subjects = [...new Set(modalities.flatMap((modality) => [...modality.subjects]))]
+      .filter((subject) => subject !== NOT_A_SUBJECT)
+      .sort((a, b) => compareSubjects(a, b));
     return { modalities, subjects };
-  }, [rows]);
+  }, [subjectsByModality]);
 
   function show(event, modality, subject, available) {
     const containerElement = containerRef.current;
@@ -84,7 +78,7 @@ export default function ModalityHeatmap({ rows, linkFilters = {} }) {
                     <td key={subject} className={styles.cellSlot}>
                       {available ? (
                         <Link
-                          to={filesUrl(modality.name, subject)}
+                          to={filesLink(linkFilters, { Modality: [modality.name] }, { subject })}
                           className={clsx(styles.cell, styles.available)}
                           aria-label={`${label}. View files.`}
                           {...handlers}
@@ -125,4 +119,4 @@ export default function ModalityHeatmap({ rows, linkFilters = {} }) {
       </figcaption>
     </figure>
   );
-}
+});

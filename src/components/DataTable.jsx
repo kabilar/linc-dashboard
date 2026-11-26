@@ -1,13 +1,20 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import clsx from "clsx";
 import { compareLabels, formatNumber } from "./data";
 import InfoTip from "./InfoTip";
 import styles from "./DataTable.module.css";
 
+const PAGE_SIZES = [25, 50, 100, 250];
+
+// A missing value
+export function Missing() {
+  return <span className={styles.muted}>—</span>;
+}
+
 // Collapses long lists
 export function ExpandableList({ items, limit = 12 }) {
   const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return <span className={styles.muted}>—</span>;
+  if (items.length === 0) return <Missing />;
 
   const visible = expanded ? items : items.slice(0, limit);
   const hidden = items.length - visible.length;
@@ -57,22 +64,19 @@ function SortIndicator({ direction }) {
 }
 
 // A sortable, optionally paginated table; rows stack into labeled blocks on screens up to `stackUpTo` px
-export default function DataTable({
+export default memo(function DataTable({
   columns,
   rows,
-  caption,
   rowKey = (row) => row.id,
   initialSort = null,
   paginate = false,
-  pageSizeOptions = [25, 50, 100, 250],
-  defaultPageSize = 50,
   emptyMessage = "No rows match.",
   stackUpTo = 0,
 }) {
   const stacked = useMaxWidth(stackUpTo);
   const wrapperRef = useRef(null);
   const [sort, setSort] = useState(initialSort);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
 
   const sortedRows = useMemo(() => {
@@ -113,12 +117,10 @@ export default function DataTable({
     <div className={clsx(styles.wrapper, stacked && styles.stacked)} ref={wrapperRef}>
       <div className={styles.scroller}>
         <table className={styles.table}>
-          {caption && <caption className={styles.caption}>{caption}</caption>}
           <thead>
             <tr>
               {columns.map((column) => {
                 const direction = sort?.key === column.key ? sort.direction : null;
-                const sortable = column.sortable !== false;
                 return (
                   <th
                     key={column.key}
@@ -126,14 +128,10 @@ export default function DataTable({
                     className={clsx(column.align === "right" && styles.alignRight)}
                     aria-sort={direction ? (direction === "asc" ? "ascending" : "descending") : undefined}>
                     <span className={styles.header}>
-                      {sortable ? (
-                        <button type="button" className={styles.sortButton} onClick={() => toggleSort(column.key)}>
-                          {column.label}
-                          <SortIndicator direction={direction} />
-                        </button>
-                      ) : (
-                        column.label
-                      )}
+                      <button type="button" className={styles.sortButton} onClick={() => toggleSort(column.key)}>
+                        {column.label}
+                        <SortIndicator direction={direction} />
+                      </button>
                       {column.description && <InfoTip label={`About ${column.label}`}>{column.description}</InfoTip>}
                     </span>
                   </th>
@@ -149,8 +147,8 @@ export default function DataTable({
                 </td>
               </tr>
             ) : (
-              visibleRows.map((row, index) => (
-                <tr key={rowKey(row) ?? start + index}>
+              visibleRows.map((row) => (
+                <tr key={rowKey(row)}>
                   {columns.map((column) => {
                     if (stacked && column.stackHeading && (row[column.key] ?? "") === "") return null;
                     const content = column.render ? column.render(row) : row[column.key];
@@ -160,9 +158,10 @@ export default function DataTable({
                         className={clsx(
                           column.align === "right" && styles.alignRight,
                           column.stackHeading && styles.stackHeading,
+                          column.nowrap && styles.nowrap,
                           column.className,
                         )}
-                        data-label={stacked ? (typeof column.label === "string" ? column.label : column.key) : undefined}>
+                        data-label={stacked ? column.label : undefined}>
                         {stacked ? <span className={styles.cellValue}>{content}</span> : content}
                       </td>
                     );
@@ -179,7 +178,7 @@ export default function DataTable({
           <label className={styles.pageSize}>
             Rows per page
             <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
-              {pageSizeOptions.map((size) => (
+              {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>
@@ -218,4 +217,4 @@ export default function DataTable({
       )}
     </div>
   );
-}
+});
