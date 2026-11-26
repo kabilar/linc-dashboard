@@ -3,8 +3,7 @@ import Link from "@docusaurus/Link";
 import DataTable, { ExpandableList } from "./DataTable";
 import LoadingState from "./LoadingState";
 import OverviewFilters from "./OverviewFilters";
-import SectionHeading, { useScrollToHash } from "./SectionHeading";
-import { MODALITIES, compareModalities } from "./modalities";
+import { compareModalities } from "./modalities";
 import {
   useCsv,
   splitList,
@@ -16,7 +15,7 @@ import {
   datasetUrl,
   UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
-import { INVALID_BIDS, summarizeModalities, useOverview } from "./overview";
+import { INVALID_BIDS, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
 
@@ -88,13 +87,6 @@ const DATASET_COLUMNS = [
   },
 ];
 
-const MODALITY_COLUMNS = [
-  { key: "Modality", label: "Modality", sortValue: (row) => MODALITIES.findIndex((m) => m.name === row.Modality) },
-  sizeColumn,
-  listColumn("Subject"),
-  listColumn("Extension"),
-];
-
 function summarizeDatasets(files, names) {
   const groups = new Map();
   for (const file of files) {
@@ -137,41 +129,24 @@ function summarizeDatasets(files, names) {
   }));
 }
 
-function DatasetTables({ rows, names }) {
+function DatasetTable({ rows, names }) {
   const overview = useOverview(rows);
-  const { isStale, filtered, scope } = overview;
-  useScrollToHash();
-
+  const { isStale, filtered } = overview;
   const datasetRows = useMemo(() => summarizeDatasets(filtered, names), [filtered, names]);
-  const modalityRows = useMemo(() => summarizeModalities(filtered, scope), [filtered, scope]);
 
   return (
     <>
       <OverviewFilters {...overview} />
       <div className={isStale ? filterStyles.stale : undefined}>
-        <section>
-          <SectionHeading id="datasets">Datasets</SectionHeading>
-          <DataTable
-            columns={DATASET_COLUMNS}
-            rows={datasetRows}
-            rowKey={datasetId}
-            initialSort={{ key: "Dataset", direction: "asc" }}
-            emptyMessage="No datasets match these filters."
-            // The site's mobile layout; the table needs about 1,300px
-            stackUpTo={996}
-          />
-        </section>
-
-        <section>
-          <SectionHeading id="modalities">Modalities</SectionHeading>
-          <DataTable
-            columns={MODALITY_COLUMNS}
-            rows={modalityRows}
-            rowKey={(row) => row.Modality}
-            initialSort={{ key: "Modality", direction: "asc" }}
-            stackUpTo={640}
-          />
-        </section>
+        <DataTable
+          columns={DATASET_COLUMNS}
+          rows={datasetRows}
+          rowKey={datasetId}
+          initialSort={{ key: "Dataset", direction: "asc" }}
+          emptyMessage="No datasets match these filters."
+          // The site's mobile layout; the table needs about 1,300px
+          stackUpTo={996}
+        />
       </div>
     </>
   );
@@ -185,5 +160,5 @@ export default function Datasets() {
     () => new Map((datasets.rows ?? []).map((row) => [datasetId(row), row.Name ?? ""])),
     [datasets.rows],
   );
-  return <LoadingState {...assets}>{(rows) => <DatasetTables rows={rows} names={names} />}</LoadingState>;
+  return <LoadingState {...assets}>{(rows) => <DatasetTable rows={rows} names={names} />}</LoadingState>;
 }
