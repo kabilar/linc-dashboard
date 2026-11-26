@@ -22,6 +22,10 @@ Mappings only replace "Unknown": a file whose name gives its modality or
 subject keeps it. When several mappings match a file, the most specific folder
 wins.
 
+`extract_metadata.py` also adds a note to OME-Zarr archives that have no
+OME-Zarr metadata (no `multiscales` in the root group), which viewers cannot
+open as images: `Missing OME-Zarr metadata: add multiscales to the root group`.
+
 ## `samples.csv` (edited by hand)
 
 A file's sample is the BIDS `sample-<label>` entity of its name (or else of the

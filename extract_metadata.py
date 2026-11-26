@@ -57,6 +57,8 @@ VERSION = 'draft'
 ASSETS_CSV = './static/lincbrain_assets.csv'
 
 OME_ZARR = 'OME-Zarr'
+# Note for archives named .ome.zarr whose Zarr metadata has no OME-Zarr part
+MISSING_OME_METADATA = 'Missing OME-Zarr metadata: add multiscales to the root group'
 
 PAGE_SIZE = 1000
 # Concurrent requests
@@ -280,7 +282,7 @@ def ngff_version(attributes):
 
 
 def ome_zarr_version(reader, zarr_id, storage_url):
-    """An OME-Zarr archive's version, or None if unreadable."""
+    """An OME-Zarr archive's version, '' if it has no OME-Zarr metadata, or None if unreadable."""
     # zarr.json: Zarr v3; .zattrs: Zarr v2
     for name in ('zarr.json', '.zattrs'):
         document = reader.read_json(zarr_id, storage_url, name)
@@ -292,7 +294,7 @@ def ome_zarr_version(reader, zarr_id, storage_url):
             series = reader.read_json(zarr_id, storage_url, f'0/{name}')
             if series is not None:
                 version = ngff_version(series.get('attributes', {}) if name == 'zarr.json' else series)
-        return version
+        return version or ''
     return None
 
 
@@ -326,12 +328,15 @@ def add_ome_zarr_versions(archive, client, rows, cache):
     for row, version in zip(pending, versions):
         if version:
             row['Extension'] = f'{OME_ZARR} v{version}'
+        elif version == '':
+            row['Note'] = MISSING_OME_METADATA
 
-    unknown = sum(version is None for version in versions)
-    print(f'{archive}: {len(zarrs)} OME-Zarr archives; read the version of {len(pending)} '
-          f'(the others are unchanged since the previous run); {unknown} without a version', flush=True)
+    missing = versions.count('')
+    unknown = versions.count(None)
+    print(f'{archive}: {len(zarrs)} OME-Zarr archives; read {len(pending)} (the others are unchanged '
+          f'since the previous run): {missing} without OME-Zarr metadata, {unknown} unreadable', flush=True)
     if unknown:
-        warn(f'{archive}: {unknown} OME-Zarr archives have no readable OME-NGFF version')
+        warn(f'{archive}: {unknown} OME-Zarr archives could not be read')
 
 
 def load_cache(path=ASSETS_CSV):
@@ -586,7 +591,7 @@ def apply_mappings(df, mappings):
     """Fill unknown modalities and subjects from the mappings, and add their notes."""
     records = df.to_dict('records')
     for record in records:
-        notes = []
+        notes = [record['Note']] if record['Note'] else []
         for mapping in mappings:
             if (mapping['Archive'], mapping['Dataset']) != (record['Archive'], record['Dataset']):
                 continue
