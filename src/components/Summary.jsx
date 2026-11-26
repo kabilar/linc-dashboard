@@ -88,7 +88,7 @@ function Dashboard({ rows }) {
       <OverviewFilters {...overview} />
       <div className={isStale ? filterStyles.stale : undefined}>
         <StatTiles stats={stats} total={files.length} basis={basis} />
-
+        <ActivityChart files={filtered} basis={basis} months={months} modalities={scope} />
         <section className={chartStyles.card}>
           <div className={chartStyles.header}>
             <SectionHeading as="h3" id="subjects-by-modality" className={chartStyles.title}>
@@ -100,8 +100,6 @@ function Dashboard({ rows }) {
           </div>
           <ModalityHeatmap rows={heatmapRows} />
         </section>
-
-        <ActivityChart files={filtered} basis={basis} months={months} modalities={scope} />
         <SubjectTimeline
           files={filtered}
           basis={basis}
