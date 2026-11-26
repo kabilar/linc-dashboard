@@ -48,6 +48,11 @@
   overflow-x: auto;
 }
 
+/* Around a scrolling chart, for a tooltip that may extend past it */
+.frame {
+  position: relative;
+}
+
 .plot svg,
 .scroll svg {
   display: block;

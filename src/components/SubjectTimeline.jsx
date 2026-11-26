@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useHistory } from "@docusaurus/router";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } from "./modalities";
@@ -33,6 +33,19 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   const scrollRef = useRef(null);
   const containerWidth = useElementWidth(scrollRef);
   const [active, setActive] = useState(null);
+  const tooltipRef = useRef(null);
+
+  // Keep the tooltip within the chart's width, e.g. beside a long bar
+  useLayoutEffect(() => {
+    const tooltip = tooltipRef.current;
+    const frame = scrollRef.current?.parentElement;
+    if (!tooltip || !frame) return;
+    tooltip.style.transform = "";
+    const t = tooltip.getBoundingClientRect();
+    const f = frame.getBoundingClientRect();
+    const shift = t.left < f.left ? f.left - t.left : t.right > f.right ? f.right - t.right : 0;
+    if (shift) tooltip.style.transform = `translateX(${shift}px)`;
+  }, [active]);
   const history = useHistory();
   const filesPath = useBaseUrl("/files");
 
@@ -44,10 +57,17 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
       if (file.Modality === UNKNOWN_MODALITY && !includeUnknown) continue;
       if (!bySubject.has(file.Subject)) bySubject.set(file.Subject, new Map());
       const byModality = bySubject.get(file.Subject);
-      const item = byModality.get(file.Modality) ?? { first: date, last: date, files: 0, datasets: new Set() };
+      const item = byModality.get(file.Modality) ?? {
+        first: date,
+        last: date,
+        files: 0,
+        samples: new Set(),
+        datasets: new Set(),
+      };
       if (date < item.first) item.first = date;
       if (date > item.last) item.last = date;
       item.files += 1;
+      if (file.Sample) item.samples.add(file.Sample);
       item.datasets.add(file.DatasetId);
       byModality.set(file.Modality, item);
     }
@@ -72,6 +92,8 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   }
 
   let plot = null;
+  // Shown outside the chart's scrolling frame, which would clip it
+  let tooltip = null;
   if (containerWidth > 0 && lanes.length > 0 && months.length > 0) {
     const width = Math.max(MIN_WIDTH, containerWidth);
     const start = dayValue(`${months[0]}-01`);
@@ -109,7 +131,9 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
                 className={styles.hit}
                 tabIndex={0}
                 role="link"
-                aria-label={`${item.subject}, ${item.modality}: ${verb} ${range}, ${formatNumber(item.files)} files. View files.`}
+                aria-label={`${item.subject}, ${item.modality}: ${verb} ${range}, ${formatNumber(item.files)} files${
+                  item.samples.size ? `, ${formatNumber(item.samples.size)} samples` : ""
+                }. View files.`}
                 onPointerEnter={() => setActive(key)}
                 onFocus={() => setActive(key)}
                 onBlur={() => setActive(null)}
@@ -145,61 +169,71 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
     const ticks = months.filter((month) => !quarterly || ["01", "04", "07", "10"].includes(month.slice(5, 7)));
 
     plot = (
-      <>
-        <svg width={width} height={height} role="group" aria-label={`Subjects' data ${verb} over time, by modality`}>
-          {ticks.map((month) => {
-            const tx = x(dayValue(`${month}-01`));
-            const isYear = month.endsWith("-01");
-            return (
-              <g key={month}>
-                <line
-                  x1={tx}
-                  x2={tx}
-                  y1={AXIS_HEIGHT - 6}
-                  y2={height}
-                  stroke={isYear ? "var(--ifm-color-emphasis-400)" : "var(--ifm-color-emphasis-200)"}
-                />
-                <text
-                  x={tx + 4}
-                  y={AXIS_HEIGHT - 10}
-                  fontSize="11"
-                  fontWeight={isYear ? 600 : 400}
-                  fill={isYear ? "var(--ifm-font-color-base)" : "var(--ifm-color-emphasis-700)"}>
-                  {shortMonth(month)}
-                  {isYear ? ` ${month.slice(0, 4)}` : ""}
-                </text>
-              </g>
-            );
-          })}
-          {laneElements}
-        </svg>
-        {active && positions.has(active) && (() => {
-          const { start, end, top, item } = positions.get(active);
-          // Beside the bar: after its end, or before its start near the right edge
-          const onRight = end < width - 240;
+      <svg width={width} height={height} role="group" aria-label={`Subjects' data ${verb} over time, by modality`}>
+        {ticks.map((month) => {
+          const tx = x(dayValue(`${month}-01`));
+          const isYear = month.endsWith("-01");
           return (
-            <div
-              className={styles.tooltip}
-              style={{
-                left: onRight ? end + 10 : undefined,
-                right: onRight ? undefined : width - start + 10,
-                top: Math.max(0, top - 18),
-              }}>
-              <div className={styles.tooltipTitle}>
-                {item.subject} · {item.modality}
-              </div>
-              <div>
-                <strong>{item.first === item.last ? item.first : `${item.first} – ${item.last}`}</strong>
-              </div>
-              <div>
-                {formatNumber(item.files)} {item.files === 1 ? "file" : "files"} · {[...item.datasets].sort(compareLabels).join(", ")}
-              </div>
-              <div className={styles.hint}>Select to view files</div>
-            </div>
+            <g key={month}>
+              <line
+                x1={tx}
+                x2={tx}
+                y1={AXIS_HEIGHT - 6}
+                y2={height}
+                stroke={isYear ? "var(--ifm-color-emphasis-400)" : "var(--ifm-color-emphasis-200)"}
+              />
+              <text
+                x={tx + 4}
+                y={AXIS_HEIGHT - 10}
+                fontSize="11"
+                fontWeight={isYear ? 600 : 400}
+                fill={isYear ? "var(--ifm-font-color-base)" : "var(--ifm-color-emphasis-700)"}>
+                {shortMonth(month)}
+                {isYear ? ` ${month.slice(0, 4)}` : ""}
+              </text>
+            </g>
           );
-        })()}
-      </>
+        })}
+        {laneElements}
+      </svg>
     );
+    if (active && positions.has(active)) {
+      const { start, end, top, item } = positions.get(active);
+      // In the frame's coordinates, which scroll with the chart on small screens
+      const frame = scrollRef.current;
+      const visible = frame?.clientWidth ?? width;
+      const barStart = start - (frame?.scrollLeft ?? 0);
+      const barEnd = end - (frame?.scrollLeft ?? 0);
+      // Beside the bar: after its end, or before its start near the right edge;
+      // and below its top, or above its bottom in the lower half of the chart
+      const onRight = barEnd < visible - 240;
+      const below = top < height / 2;
+      tooltip = (
+        <div
+          ref={tooltipRef}
+          className={styles.tooltip}
+          style={{
+            left: onRight ? barEnd + 10 : undefined,
+            right: onRight ? undefined : visible - barStart + 10,
+            top: below ? Math.max(0, top - 18) : undefined,
+            bottom: below ? undefined : (frame?.offsetHeight ?? height) - top - 18,
+          }}>
+          <div className={styles.tooltipTitle}>
+            {item.subject} · {item.modality}
+          </div>
+          <div>
+            <strong>{item.first === item.last ? item.first : `${item.first} – ${item.last}`}</strong>
+          </div>
+          <div>
+            {formatNumber(item.files)} {item.files === 1 ? "file" : "files"}
+            {item.samples.size > 0 &&
+              ` · ${formatNumber(item.samples.size)} ${item.samples.size === 1 ? "sample" : "samples"}`}{" "}
+            · {[...item.datasets].sort(compareLabels).join(", ")}
+          </div>
+          <div className={styles.hint}>Select to view files</div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -213,8 +247,11 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
         </span>
       </div>
       {lanes.length > 0 && <ModalityLegend names={legendNames} className={styles.legend} />}
-      <div className={styles.scroll} ref={scrollRef} onPointerLeave={() => setActive(null)}>
-        {lanes.length === 0 ? <div className={styles.empty}>No dated files with a subject match these filters.</div> : plot}
+      <div className={styles.frame}>
+        <div className={styles.scroll} ref={scrollRef} onPointerLeave={() => setActive(null)}>
+          {lanes.length === 0 ? <div className={styles.empty}>No dated files with a subject match these filters.</div> : plot}
+        </div>
+        {tooltip}
       </div>
       {!includeUnknown && (
         <p className={styles.note}>Files of unknown modality are left out unless “Unknown” is selected in the Modality filter.</p>

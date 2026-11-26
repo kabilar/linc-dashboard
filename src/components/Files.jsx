@@ -51,8 +51,12 @@ const FILTERS = [
     compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
   },
   { key: "Subject", param: "subject" },
+  // The tissue sample, e.g. slice079 (labels are only unique within a subject)
+  { key: "Sample", param: "sample" },
   { key: "Modality", param: "modality", multi: true, compare: compareModalities, color: modalityColor },
   { key: "Extension", param: "extension" },
+  // e.g. LY
+  { key: "Stain", param: "stain" },
   // e.g. "Needs renaming: add the _SPIM suffix"
   { key: "Note", param: "note" },
   {
@@ -83,6 +87,11 @@ const COLUMNS = [
     render: (row) => <Link to={datasetUrl(row)}>{row.DatasetId}</Link>,
   },
   { key: "Subject", label: "Subject" },
+  {
+    key: "Sample",
+    label: "Sample",
+    render: (row) => (row.Sample === NONE ? <span className={styles.muted}>—</span> : row.Sample),
+  },
   { key: "Modality", label: "Modality" },
   {
     key: "Path",

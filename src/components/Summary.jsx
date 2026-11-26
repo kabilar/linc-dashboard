@@ -8,7 +8,7 @@ import SectionHeading, { useScrollToHash } from "./SectionHeading";
 import { UNKNOWN_MODALITY } from "./modalities";
 import { monthRange } from "./charts";
 import { useCsv, formatBytes, formatNumber } from "./data";
-import { NOT_SUBJECTS, summarizeModalities, useOverview } from "./overview";
+import { NOT_SUBJECTS, sampleKey, summarizeModalities, useOverview } from "./overview";
 import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
 import chartStyles from "./Charts.module.css";
@@ -32,14 +32,16 @@ function summarize(files, basis) {
   let bytes = 0;
   let latest = null;
   const subjects = new Set();
+  const samples = new Set();
   const datasets = new Set();
   for (const file of files) {
     bytes += file.size;
     if (!NOT_SUBJECTS.has(file.Subject)) subjects.add(file.Subject);
+    if (file.Sample) samples.add(sampleKey(file));
     datasets.add(file.DatasetId);
     if (file[basis] && (!latest || file[basis] > latest[basis])) latest = file;
   }
-  return { files: files.length, bytes, subjects: subjects.size, datasets: datasets.size, latest };
+  return { files: files.length, bytes, subjects: subjects.size, samples: samples.size, datasets: datasets.size, latest };
 }
 
 function StatTiles({ stats, total, basis }) {
@@ -47,6 +49,7 @@ function StatTiles({ stats, total, basis }) {
     ["Files", formatNumber(stats.files), stats.files !== total ? `of ${formatNumber(total)}` : ""],
     ["Size", formatBytes(stats.bytes), ""],
     ["Subjects", formatNumber(stats.subjects), ""],
+    ["Samples", formatNumber(stats.samples), ""],
     ["Datasets", formatNumber(stats.datasets), ""],
     [
       `Last ${basis.toLowerCase()}`,

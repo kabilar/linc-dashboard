@@ -15,7 +15,7 @@ import {
   datasetUrl,
   UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
-import { INVALID_BIDS, useOverview } from "./overview";
+import { INVALID_BIDS, sampleKey, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
 
@@ -51,6 +51,13 @@ const DATASET_COLUMNS = [
   listColumn("Modality"),
   sizeColumn,
   listColumn("Subject"),
+  {
+    key: "Samples",
+    label: "Samples",
+    description: "The number of tissue samples: the sample- labels in the file (or folder) names, for each subject.",
+    align: "right",
+    render: (row) => formatNumber(row.Samples),
+  },
   listColumn("Extension"),
   {
     key: "Last uploaded",
@@ -99,6 +106,7 @@ function summarizeDatasets(files, names) {
         invalidBids: 0,
         modalities: new Set(),
         subjects: new Set(),
+        samples: new Set(),
         extensions: new Set(),
         first: "",
         last: "",
@@ -109,6 +117,7 @@ function summarizeDatasets(files, names) {
     if (file.BIDS === INVALID_BIDS) group.invalidBids += 1;
     group.modalities.add(file.Modality);
     group.subjects.add(file.Subject);
+    if (file.Sample) group.samples.add(sampleKey(file));
     if (file.Extension) group.extensions.add(file.Extension);
     if (file.Uploaded) {
       if (!group.first || file.Uploaded < group.first) group.first = file.Uploaded;
@@ -122,6 +131,7 @@ function summarizeDatasets(files, names) {
     Modality: [...group.modalities].sort(compareModalities).join(","),
     "Size (GB)": group.bytes / 1000 ** 3,
     Subject: [...group.subjects].join(","),
+    Samples: group.samples.size,
     Extension: [...group.extensions].join(","),
     "First uploaded": group.first,
     "Last uploaded": group.last,

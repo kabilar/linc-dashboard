@@ -19,6 +19,11 @@ export const INVALID_BIDS = "Invalid";
 // Values of the Subject column that are not subjects
 export const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 
+// A file's sample as subject/label, or "" if it has none
+export function sampleKey(file) {
+  return file.Sample ? `${file.Subject}/${file.Sample}` : "";
+}
+
 // The date the Dates filter goes by
 export function basisOf(filters) {
   return filters.Dates === "uploaded" ? "Uploaded" : "Produced";
@@ -32,6 +37,8 @@ export function prepareFiles(rows) {
       Dataset: row.Dataset,
       DatasetId: id,
       Subject: row.Subject || "Unknown",
+      // The tissue sample, e.g. slice079; labels are only unique within a subject
+      Sample: row.Sample || "",
       Modality: row.Modality || UNKNOWN_MODALITY,
       Extension: row.Extension || "",
       size: toNumber(row["Size (bytes)"]),

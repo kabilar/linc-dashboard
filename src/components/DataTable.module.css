@@ -120,7 +120,7 @@
 
 .list {
   display: inline-block;
-  min-width: min(11rem, 60vw);
+  min-width: min(9.5rem, 60vw);
   overflow-wrap: break-word;
 }
 
