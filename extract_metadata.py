@@ -397,11 +397,22 @@ def parse_modality(path):
     return next((value for key, value in modalities.items() if key in filename), 'Unknown')
 
 
+# Suffixes of compressed files, which keep the suffix before them (e.g. nii.gz)
+COMPRESSION_SUFFIXES = {'.gz', '.bz2', '.xz', '.zst'}
+
+
 def parse_extension(path):
+    """The file's extension, e.g. 'nii.gz' for mask.Img4905_left.nii.gz.
+
+    Only the last suffix counts, as file names often contain dots, along with
+    the one before it for compressed files.
+    """
     if path.lower().endswith('.ome.zarr'):
         return OME_ZARR  # the version is added by add_ome_zarr_versions
     suffixes = Path(path).suffixes
-    return suffixes[0][1:] if suffixes else ''
+    if len(suffixes) > 1 and suffixes[-1].lower() in COMPRESSION_SUFFIXES:
+        return ''.join(suffixes[-2:])[1:]
+    return suffixes[-1][1:] if suffixes else ''
 
 
 def to_utc_date(value):
