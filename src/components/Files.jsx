@@ -28,6 +28,8 @@ import filterStyles from "./Filters.module.css";
 
 const ASSETS_CSV = "lincbrain_assets.csv";
 const NONE = "(none)";
+// Matches any value but NONE, e.g. any note
+const ANY = "(any)";
 const INVALID_BIDS = "Invalid";
 
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
@@ -52,7 +54,7 @@ const FILTERS = [
     compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
   },
   { key: "Subject", param: "subject", allLabel: "All subjects" },
-  { key: "Sample", param: "sample", allLabel: "All samples" },
+  { key: "Sample", param: "sample", allLabel: "All samples", noneLabel: "No sample" },
   {
     key: "Modality",
     param: "modality",
@@ -61,9 +63,9 @@ const FILTERS = [
     compare: compareModalities,
     color: modalityColor,
   },
-  { key: "Extension", param: "extension", allLabel: "All extensions" },
-  { key: "Stain", param: "stain", allLabel: "All stains" },
-  { key: "Note", param: "note", allLabel: "All files" },
+  { key: "Extension", param: "extension", allLabel: "All extensions", noneLabel: "No extension" },
+  { key: "Stain", param: "stain", allLabel: "All stains", noneLabel: "No stain" },
+  { key: "Note", label: "Notes", param: "note", allLabel: "All files", anyLabel: "Any note", noneLabel: "No note" },
   {
     key: "BIDS",
     param: "bids",
@@ -158,6 +160,17 @@ const COLUMNS = [
   },
 ];
 
+function matches(value, selected, multi) {
+  if (multi) return !selected.length || selected.includes(value);
+  return !selected || (selected === ANY ? value !== NONE : value === selected);
+}
+
+function optionLabel({ format = (option) => option, anyLabel, noneLabel = "None" }, option) {
+  if (option === ANY) return anyLabel;
+  if (option === NONE) return noneLabel;
+  return format(option);
+}
+
 function inDates(file, filters) {
   const { From: from, To: to } = filters;
   if (!from && !to) return true;
@@ -194,10 +207,9 @@ function FilesTable({ rows, csvUrl }) {
     for (const file of files) {
       if (deferredQuery && !file.searchText.includes(deferredQuery)) continue;
       if (!inDates(file, deferredFilters)) continue;
-      const failed = FILTERS.filter(({ key, multi }) => {
-        const value = deferredFilters[key];
-        return multi ? value.length && !value.includes(file[key]) : value && file[key] !== value;
-      }).map(({ key }) => key);
+      const failed = FILTERS.filter(({ key, multi }) => !matches(file[key], deferredFilters[key], multi)).map(
+        ({ key }) => key,
+      );
       // Counts for a filter if it fails no other (or only an ignored) filter
       for (const { key, optionsIgnore = [] } of FILTERS) {
         if (failed.every((other) => other === key || optionsIgnore.includes(other))) {
@@ -205,8 +217,14 @@ function FilesTable({ rows, csvUrl }) {
         }
       }
     }
+    // "None" last, and "Any" first where a filter has it
     return Object.fromEntries(
-      FILTERS.map(({ key, compare = compareLabels }) => [key, [...sizes[key]].sort(([a], [b]) => compare(a, b))]),
+      FILTERS.map(({ key, compare = compareLabels, anyLabel }) => {
+        const values = [...sizes[key]].sort(([a], [b]) => (a === NONE) - (b === NONE) || compare(a, b));
+        const some = values.filter(([value]) => value !== NONE);
+        const any = anyLabel && some.length ? [[ANY, some.reduce((sum, [, size]) => sum + size, 0)]] : [];
+        return [key, [...any, ...values]];
+      }),
     );
   }, [files, deferredFilters, deferredQuery]);
 
@@ -214,10 +232,7 @@ function FilesTable({ rows, csvUrl }) {
     () =>
       files.filter(
         (file) =>
-          FILTERS.every(({ key, multi }) => {
-            const value = deferredFilters[key];
-            return multi ? !value.length || value.includes(file[key]) : !value || file[key] === value;
-          }) &&
+          FILTERS.every(({ key, multi }) => matches(file[key], deferredFilters[key], multi)) &&
           inDates(file, deferredFilters) &&
           (!deferredQuery || file.searchText.includes(deferredQuery)),
       ),
@@ -248,7 +263,8 @@ function FilesTable({ rows, csvUrl }) {
   }
 
   function renderDropdown(key) {
-    const { label = key, multi, allLabel, color, format = (option) => option } = FILTER_BY_KEY[key];
+    const filter = FILTER_BY_KEY[key];
+    const { label = key, multi, allLabel, color } = filter;
     const value = filters[key];
     if (multi) {
       return (
@@ -260,7 +276,7 @@ function FilesTable({ rows, csvUrl }) {
           onChange={(selected) => changeFilter(key, selected)}
           options={options[key].map(([option, size]) => ({
             value: option,
-            label: format(option),
+            label: optionLabel(filter, option),
             detail: formatBytes(size),
             color: color?.(option),
           }))}
@@ -274,10 +290,10 @@ function FilesTable({ rows, csvUrl }) {
         <span>{label}</span>
         <select value={value} onChange={(event) => changeFilter(key, event.target.value)}>
           <option value="">{allLabel}</option>
-          {value && !known && <option value={value}>{format(value)} (0 B)</option>}
+          {value && !known && <option value={value}>{optionLabel(filter, value)} (0 B)</option>}
           {choices.map(([option, size]) => (
             <option key={option} value={option}>
-              {format(option)} ({formatBytes(size)})
+              {optionLabel(filter, option)} ({formatBytes(size)})
             </option>
           ))}
         </select>
