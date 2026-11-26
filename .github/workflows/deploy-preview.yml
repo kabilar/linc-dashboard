@@ -1,12 +1,5 @@
 name: Deploy preview
 
-# Builds the site for this repository's GitHub Pages address
-# (https://<owner>.github.io/<repository>/) on every push and publishes it to
-# the gh-pages branch, so that changes can be previewed from a fork.
-# Requires Settings > Pages > "Deploy from a branch" with the gh-pages branch.
-# Does not run in lincbrain/linc-dashboard, whose site is deployed to
-# dashboard.lincbrain.org by deploy.yml.
-
 on:
   push:
     branches-ignore:
