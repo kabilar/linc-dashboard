@@ -71,7 +71,7 @@ const config = {
           // Highlighted on the home page only, rather than on every page under it
           {to: '/', label: 'Overview', position: 'right', activeBaseRegex: `^${baseUrl}$`},
           {to: '/datasets', label: 'Datasets', position: 'right'},
-          {to: '/files', label: 'All Files', position: 'right'},
+          {to: '/files', label: 'Files', position: 'right'},
           {to: 'https://gallery.lincbrain.org', label: 'LINC Gallery ↗', position: 'right'},
           {to: 'https://connects.mgh.harvard.edu/', label: 'Project homepage ↗', position: 'right'},
         ],
