@@ -71,6 +71,16 @@
   color: rgb(220, 200, 255);
 }
 
+/* The phone menu's header matches the navbar, so that its white logo shows */
+.navbar-sidebar__brand {
+  background-color: rgb(114, 78, 182);
+}
+
+/* The light/dark mode switch and the menu's close button, on purple */
+.navbar .clean-btn {
+  color: rgb(255, 255, 255);
+}
+
 /* Homepage header, above the dashboard, aligned with its left edge */
 .heroBanner {
   padding: 2rem 0 0.25rem;
