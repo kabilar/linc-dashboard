@@ -31,7 +31,8 @@ const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 
 // Dropdown filters, in display order. `key` is the field of each file,
 // `param` the URL query parameter, `multi` whether several values can be
-// chosen, `format` the option text, and `compare` the option order.
+// chosen, `format` the option text, `compare` the option order, and
+// `optionsIgnore` the filters its options do not depend on.
 const FILTERS = [
   {
     key: "Archive",
@@ -39,14 +40,15 @@ const FILTERS = [
     param: "archive",
     format: (archive) => ARCHIVES[archive]?.host ?? archive,
     compare: (a, b) => ARCHIVE_ORDER.indexOf(a) - ARCHIVE_ORDER.indexOf(b),
+    // Every archive stays on offer while a dataset is selected: choosing
+    // another archive clears the dataset.
+    optionsIgnore: ["DatasetId"],
   },
   {
     key: "DatasetId",
     label: "Dataset",
     param: "dataset",
     compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
-    // Only list the datasets of the selected archive.
-    visible: (option, filters) => !filters.Archive || splitId(option).Archive === filters.Archive,
   },
   { key: "Subject", param: "subject" },
   { key: "Modality", param: "modality", multi: true, compare: compareModalities, color: modalityColor },
@@ -157,16 +159,29 @@ function FilesTable({ rows, csvUrl }) {
     [rows],
   );
 
-  // Options for each dropdown, with the size of the data for each value.
+  // Options for each dropdown: the values among the files that match the search
+  // and every other filter, with the size of their data. So no option leads to
+  // an empty table, and each size is what selecting it would show.
   const options = useMemo(() => {
-    const result = {};
-    for (const { key, compare = compareLabels } of FILTERS) {
-      const sizes = new Map();
-      for (const file of files) sizes.set(file[key], (sizes.get(file[key]) ?? 0) + file.size);
-      result[key] = [...sizes].sort(([a], [b]) => compare(a, b));
+    const sizes = Object.fromEntries(FILTERS.map(({ key }) => [key, new Map()]));
+    for (const file of files) {
+      if (deferredQuery && !file.searchText.includes(deferredQuery)) continue;
+      const failed = FILTERS.filter(({ key, multi }) => {
+        const value = deferredFilters[key];
+        return multi ? value.length && !value.includes(file[key]) : value && file[key] !== value;
+      }).map(({ key }) => key);
+      // A file counts for a filter's options if it fails no other filter (or
+      // only ones the options ignore)
+      for (const { key, optionsIgnore = [] } of FILTERS) {
+        if (failed.every((other) => other === key || optionsIgnore.includes(other))) {
+          sizes[key].set(file[key], (sizes[key].get(file[key]) ?? 0) + file.size);
+        }
+      }
     }
-    return result;
-  }, [files]);
+    return Object.fromEntries(
+      FILTERS.map(({ key, compare = compareLabels }) => [key, [...sizes[key]].sort(([a], [b]) => compare(a, b))]),
+    );
+  }, [files, deferredFilters, deferredQuery]);
 
   const filteredFiles = useMemo(
     () =>
@@ -210,7 +225,7 @@ function FilesTable({ rows, csvUrl }) {
             onChange={(event) => setFilters({ ...filters, Query: event.target.value })}
           />
         </label>
-        {FILTERS.map(({ key, label = key, multi, color, format = (option) => option, visible = () => true }) => {
+        {FILTERS.map(({ key, label = key, multi, color, format = (option) => option }) => {
           const value = filters[key];
           if (multi) {
             return (
@@ -228,7 +243,7 @@ function FilesTable({ rows, csvUrl }) {
               />
             );
           }
-          const choices = options[key].filter(([option]) => option === value || visible(option, filters));
+          const choices = options[key];
           const known = choices.some(([option]) => option === value);
           return (
             <label key={key} className={styles.filter}>

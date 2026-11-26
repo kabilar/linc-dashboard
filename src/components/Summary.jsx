@@ -275,11 +275,18 @@ function Dashboard({ rows, names }) {
   const selectedBasis = filters.Dates === "uploaded" ? "Uploaded" : "Produced";
 
   // Options for the filters, with the size of the data for each value
-  const modalitySizes = useMemo(() => sizeBy(files, "Modality"), [files]);
-  const archiveSizes = useMemo(() => sizeBy(files, "Archive"), [files]);
+  // within the other filters, so that each size is what selecting it would show
+  const modalitySizes = useMemo(
+    () => sizeBy(applyFilters(files, { ...deferred, Modality: [] }, basis), "Modality"),
+    [files, deferred, basis],
+  );
+  const archiveSizes = useMemo(
+    () => sizeBy(applyFilters(files, { ...deferred, Archive: "" }, basis), "Archive"),
+    [files, deferred, basis],
+  );
   const allModalities = useMemo(
-    () => [...new Set([...MODALITIES.map((m) => m.name), ...modalitySizes.keys()])].sort(compareModalities),
-    [modalitySizes],
+    () => [...new Set([...MODALITIES.map((m) => m.name), ...files.map((file) => file.Modality)])].sort(compareModalities),
+    [files],
   );
   const monthOptions = useMemo(
     () => [...new Set(files.map((file) => file[selectedBasis].slice(0, 7)).filter(Boolean))].sort(),
