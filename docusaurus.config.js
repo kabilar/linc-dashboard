@@ -68,6 +68,8 @@ const config = {
           src: 'img/linc.logo.color+black.alpha.notext.png',
         },
         items: [
+          // Highlighted on the home page only, rather than on every page under it
+          {to: '/', label: 'Overview', position: 'right', activeBaseRegex: `^${baseUrl}$`},
           {to: '/datasets', label: 'Datasets', position: 'right'},
           {to: '/files', label: 'All Files', position: 'right'},
           {to: 'https://gallery.lincbrain.org', label: 'LINC Gallery ↗', position: 'right'},
