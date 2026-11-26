@@ -29,7 +29,7 @@
   outline-offset: 0;
 }
 
-/* Below the button, aligned to its right edge (these columns sit at the right of their tables). */
+/* Below the button, right-aligned */
 .tooltip {
   position: absolute;
   top: calc(100% + 6px);

@@ -6,12 +6,9 @@ import { compareModalities } from "./modalities";
 import { filesQuery } from "./overview";
 import styles from "./ModalityHeatmap.module.css";
 
-// Dataset-level files (e.g. participants.tsv) are not tied to a subject.
 const NOT_A_SUBJECT = "n/a";
 
-// Grid of modalities (rows) x subjects (columns) showing which subjects have
-// data for each modality. Each available cell links to the matching files,
-// within `linkFilters` (the page's filters).
+// Modalities x subjects; each available cell links to its files
 export default function ModalityHeatmap({ rows, linkFilters = {} }) {
   const filesUrl = (modality, subject) => `/files?${filesQuery(linkFilters, { Modality: [modality] }, { subject })}`;
   const containerRef = useRef(null);
@@ -32,7 +29,6 @@ export default function ModalityHeatmap({ rows, linkFilters = {} }) {
     const containerElement = containerRef.current;
     const container = containerElement.getBoundingClientRect();
     const cell = event.currentTarget.getBoundingClientRect();
-    // The container scrolls horizontally on narrow screens.
     setActive({
       modality,
       subject,

@@ -1,7 +1,7 @@
 .wrapper {
   width: 100%;
   margin-bottom: 2rem;
-  /* Keep the table header clear of the fixed navbar when scrolled into view. */
+  /* Clear of the fixed navbar */
   scroll-margin-top: calc(var(--ifm-navbar-height) + 1rem);
 }
 
@@ -12,7 +12,7 @@
   border-radius: 8px;
 }
 
-/* Override Infima's default table styles (block display, striped rows). */
+/* Override Infima's table styles */
 .table {
   display: table;
   width: 100%;
@@ -202,10 +202,7 @@
   cursor: pointer;
 }
 
-/* Stacked (stackUpTo): each row is a block headed by its first cell, with the
-   other cells as labeled lines; the header row stays as sort buttons. Nothing
-   scrolls sideways, so tooltips in the header need not be clipped (Infima
-   also gives tables overflow: auto, which applies once they are blocks). */
+/* Stacked rows; Infima's overflow: auto would clip tooltips */
 .stacked .scroller,
 .stacked .table {
   overflow: visible;
@@ -284,7 +281,6 @@
   color: var(--ifm-color-emphasis-700);
 }
 
-/* Cells that head the block along with the first one, e.g. a dataset's name */
 .stacked .table tbody td.stackHeading {
   display: block;
   margin: 0 0 0.35rem;

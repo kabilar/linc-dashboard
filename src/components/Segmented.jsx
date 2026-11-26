@@ -1,8 +1,7 @@
 import clsx from "clsx";
 import styles from "./Segmented.module.css";
 
-// A row of toggle buttons for choosing one of a few options.
-// options: [{ value, label }]
+// Toggle buttons for one of a few options
 export default function Segmented({ label, options, value, onChange, small = false }) {
   return (
     <div className={clsx(styles.segmented, small && styles.small)} role="group" aria-label={label}>

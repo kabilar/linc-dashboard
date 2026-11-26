@@ -13,7 +13,6 @@ import styles from "./Summary.module.css";
 import filterStyles from "./Filters.module.css";
 import chartStyles from "./Charts.module.css";
 
-// Months from the first to the last date of the files (or the selected range)
 function monthsOf(files, basis, from, to) {
   let first = from;
   let last = to;

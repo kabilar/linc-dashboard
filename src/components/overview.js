@@ -1,39 +1,33 @@
-// Data and filters shared by the home page and the Datasets page, which show
-// the same files from different angles.
+// Shared by the Overview, Datasets and Files pages
 import { useDeferredValue, useMemo } from "react";
 import useUrlFilters, { filtersToSearch } from "./useUrlFilters";
 import { MODALITIES, UNKNOWN_MODALITY, compareModalities } from "./modalities";
 import { datasetId, toNumber } from "./data";
 
-// Filters and their URL query parameters
 export const OVERVIEW_FILTERS = {
   Modality: { param: "modality", multi: true },
   Archive: { param: "archive" },
   Dates: { param: "dates" }, // "" (produced) or "uploaded"
-  From: { param: "from" }, // "YYYY-MM"
-  To: { param: "to" }, // "YYYY-MM"
+  From: { param: "from" },
+  To: { param: "to" },
 };
 
 export const INVALID_BIDS = "Invalid";
 
-// Values of the Subject column that are not subjects
 export const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 
-// A file's sample as subject/label, or "" if it has none
+// Sample labels are only unique within a subject
 export function sampleKey(file) {
   return file.Sample ? `${file.Subject}/${file.Sample}` : "";
 }
 
-// The query string of a link to the Files page that keeps these filters, e.g.
-// for the files behind a number or a chart mark: `changes` replace some of
-// them, and `extra` adds filters of the Files page, e.g. { subject: "MF284" }.
+// The query string of a link to the Files page that keeps these filters
 export function filesQuery(filters, changes = {}, extra = {}) {
   const params = new URLSearchParams(filtersToSearch(OVERVIEW_FILTERS, { ...filters, ...changes }));
   for (const [param, value] of Object.entries(extra)) params.set(param, value);
   return params.toString();
 }
 
-// The date the Dates filter goes by
 export function basisOf(filters) {
   return filters.Dates === "uploaded" ? "Uploaded" : "Produced";
 }
@@ -46,7 +40,6 @@ export function prepareFiles(rows) {
       Dataset: row.Dataset,
       DatasetId: id,
       Subject: row.Subject || "Unknown",
-      // The tissue sample, e.g. slice079; labels are only unique within a subject
       Sample: row.Sample || "",
       Modality: row.Modality || UNKNOWN_MODALITY,
       Extension: row.Extension || "",
@@ -72,7 +65,6 @@ export function applyFilters(files, filters, basis) {
   });
 }
 
-// Total size in bytes of the files with each value of `key`
 export function sizeBy(files, key) {
   const sizes = new Map();
   for (const file of files) sizes.set(file[key], (sizes.get(file[key]) ?? 0) + file.size);
@@ -91,14 +83,7 @@ export function summarizeModalities(files, modalities) {
   });
 }
 
-/**
- * The files of the assets CSV, the filters (kept in the URL, and carried
- * between the home page and the Datasets page) and the files they select.
- *
- * Returns { filters, setFilters, deferred, isStale, files, filtered, basis,
- * modalities, scope }: `deferred` lags behind `filters` while the page catches
- * up, `modalities` lists every modality and `scope` the selected ones (or all).
- */
+// The files and filters (in the URL, shared between pages); `deferred` lags behind `filters`
 export function useOverview(rows) {
   const [filters, setFilters] = useUrlFilters(OVERVIEW_FILTERS, { carry: "overview" });
   const deferred = useDeferredValue(filters);

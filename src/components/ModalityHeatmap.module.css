@@ -6,11 +6,11 @@
 .container {
   position: relative;
   overflow-x: auto;
-  /* Room for the tooltip above the first row. */
+  /* Room for the tooltip */
   padding-top: 0.25rem;
 }
 
-/* Override Infima's default table styles. */
+/* Override Infima's table styles */
 .grid thead {
   background-color: transparent;
 }
@@ -19,7 +19,6 @@
   display: table;
   margin: 0;
   border-collapse: separate;
-  /* 2px surface gap between cells. */
   border-spacing: 2px;
   font-size: 0.8125rem;
 }

@@ -1,10 +1,6 @@
 import { compareLabels } from "./data";
 
-// Modalities in display order, each with a fixed color so that a modality
-// keeps its color whatever the filters. The colors (CSS variables in
-// src/css/custom.css, with light and dark mode values) are slots 1-6 of a
-// categorical palette validated for color-vision deficiencies when adjacent
-// (e.g. stacked); "Unknown" is a neutral gray.
+// Fixed colors (see custom.css), validated for color-vision deficiencies
 export const MODALITIES = [
   { name: "PS-OCT", color: "var(--modality-1)" },
   { name: "Dark-field microscopy", color: "var(--modality-2)" },
@@ -23,8 +19,7 @@ export function modalityColor(name) {
   return MODALITIES.find((modality) => modality.name === name)?.color ?? FALLBACK_COLOR;
 }
 
-// Known modalities in display order, then any others alphabetically, with
-// "Unknown" last.
+// Known modalities in order, then others, with "Unknown" last
 export function compareModalities(a, b) {
   const rank = (name) => {
     const index = ORDER.indexOf(name);

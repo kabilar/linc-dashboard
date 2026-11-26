@@ -3,13 +3,7 @@ import styles from "./MultiSelect.module.css";
 
 const MAX_CHIPS = 2;
 
-/**
- * A dropdown of checkboxes for choosing several values.
- *
- * options: [{ value, label?, detail?, color? }], where detail is shown after
- * the label, e.g. the size of the matching data.
- * selected: array of values; an empty array means "all".
- */
+// A dropdown of checkboxes; no selection means all
 export default function MultiSelect({ label, options, selected, onChange, allLabel = "All" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -36,7 +30,7 @@ export default function MultiSelect({ label, options, selected, onChange, allLab
   }, [open]);
 
   const byValue = new Map(options.map((option) => [option.value, option]));
-  // Keep selected values that no longer have an option (e.g. from a shared URL).
+  // e.g. values from a link that no option has
   const allOptions = [
     ...options,
     ...selected.filter((value) => !byValue.has(value)).map((value) => ({ value })),

@@ -1,5 +1,5 @@
 .heading {
-  /* Clear the fixed navbar, and the padding of the card around a chart title */
+  /* Clear the fixed navbar and the card's padding */
   scroll-margin-top: calc(var(--ifm-navbar-height) + 2rem);
 }
 
@@ -14,8 +14,7 @@
   transition: opacity 0.15s;
 }
 
-/* Shown on hover or keyboard focus, while "Link copied" shows, and always on
-   touch screens */
+/* On hover, focus, after copying, and always on touch screens */
 .heading:hover .link,
 .link:focus-visible,
 .link.shown {

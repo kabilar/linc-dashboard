@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-// Archives indexed by extract_metadata.py, keyed by the `Archive` column.
 export const ARCHIVES = {
   LINC: { host: "lincbrain.org", url: "https://lincbrain.org" },
   DANDI: { host: "dandiarchive.org", url: "https://dandiarchive.org" },
@@ -19,14 +18,11 @@ export function datasetId(row) {
   return `${archiveOf(row)}:${row.Dataset}`;
 }
 
-// Sort key that lists datasets by archive (in ARCHIVES order), then by ID.
 export function datasetSortKey(row) {
   return `${ARCHIVE_ORDER.indexOf(archiveOf(row))}:${row.Dataset}`;
 }
 
-// Fetch and parse a CSV file from the `static/` directory.
-// Every value is kept as a string (e.g. dataset IDs such as "000003" must keep
-// their leading zeros); numeric columns are converted by the caller.
+// Values stay strings, e.g. "000003" keeps its zeros
 export function useCsv(fileName) {
   const url = useBaseUrl(`/${fileName}`);
   const [state, setState] = useState({ rows: null, error: null });
@@ -99,7 +95,7 @@ export const BIDS_DESCRIPTION =
   "listed in .bidsignore are not validated.";
 export const BIDS_STATUSES = ["Valid", "Invalid", "Not validated"];
 
-// Decimal (SI) units, consistent with `Size (GB)` in extract_metadata.py.
+// SI units, as in extract_metadata.py
 const BYTE_UNITS = ["B", "kB", "MB", "GB", "TB", "PB"];
 
 export function formatBytes(bytes) {
@@ -114,25 +110,21 @@ export function formatBytes(bytes) {
   return `${value.toFixed(digits)} ${BYTE_UNITS[unit]}`;
 }
 
-// Sort labels naturally ("I35" < "I58" < "MF162"), keeping catch-all values
-// such as "Unknown" at the end.
+// Natural order ("I35" < "I58"), with catch-alls such as "Unknown" last
 const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 const TRAILING_VALUES = ["Unknown", "n/a"];
 
 export function compareLabels(a, b) {
-  // indexOf is -1 for regular values, so they sort before the trailing ones.
   const rankA = TRAILING_VALUES.indexOf(a);
   const rankB = TRAILING_VALUES.indexOf(b);
   if (rankA !== rankB) return rankA - rankB;
   return collator.compare(a, b);
 }
 
-// Link to a dataset on its archive (lincbrain.org or dandiarchive.org).
 export function datasetUrl(row) {
   return `${ARCHIVES[archiveOf(row)].url}/dandiset/${row.Dataset}/${row.Version || "draft"}`;
 }
 
-// Link to the folder that contains an asset in its archive's file browser.
 export function assetFolderUrl(row) {
   const folder = row.Path.includes("/") ? row.Path.slice(0, row.Path.lastIndexOf("/")) : "";
   const base = `${datasetUrl(row)}/files`;

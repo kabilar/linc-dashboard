@@ -14,7 +14,6 @@
   min-width: 16rem;
 }
 
-/* Previous results stay visible, dimmed, while a new filter is applied. */
 .stale {
   opacity: 0.6;
   transition: opacity 0.15s ease 0.1s;
@@ -24,7 +23,6 @@
   white-space: nowrap;
 }
 
-/* A note about a file, e.g. that it needs renaming */
 .note {
   display: block;
   width: fit-content;
@@ -54,7 +52,6 @@
   color: var(--ifm-color-emphasis-600);
 }
 
-/* Files that need attention, above the table */
 .notes {
   margin: 0 0 0.75rem;
   padding: 0.55rem 0.9rem;

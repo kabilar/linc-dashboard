@@ -13,8 +13,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# Modality of each file, from the BIDS suffix in its name (e.g. sub-X_..._SPIM.ome.zarr),
-# matched case-insensitively anywhere in the file name, in this order
+# BIDS suffix -> modality, matched case-insensitively in the file name, in order
 modalities = {'oct': 'PS-OCT',
               'df': 'Dark-field microscopy',
               'xpct': 'HiP-CT',
@@ -22,42 +21,33 @@ modalities = {'oct': 'PS-OCT',
               'spim': 'Light-sheet microscopy',
               'photo': 'Blockface photo'}
 
-# BIDS validation of file paths: files in these top-level folders are not
-# validated (as by the BIDS validator), and raw data may be in a `rawdata/`
-# folder next to them
+# Not validated (as by the BIDS validator); raw data may be under rawdata/
 BIDS_UNVALIDATED_FOLDERS = ('derivatives', 'sourcedata', 'code')
 BIDS_RAW_FOLDER = 'rawdata/'
 BIDS_VALID = 'Valid'
 BIDS_INVALID = 'Invalid'
 BIDS_NOT_VALIDATED = 'Not validated'
 
-# Curated modalities and subjects for files whose names do not give them;
-# see curation/README.md
+# See curation/README.md
 MAPPINGS_CSV = './curation/mappings.csv'
-# Folders that still have files of unknown modality or subject
 UNMAPPED_CSV = './curation/unmapped.csv'
-# Curated names of samples whose label is spelled several ways
 SAMPLES_CSV = './curation/samples.csv'
 UNMAPPED_FOLDER_DEPTH = 3
 
-# Archives to index, keyed by the prefix of their dataset identifiers
-# (e.g. LINC:000003, DANDI:001412). `token_env` names the environment variable
-# that holds the API key for each archive.
+# Keyed by dataset identifier prefix, e.g. LINC:000003
 ARCHIVES = {
     'LINC': {
         'api_url': 'https://api.lincbrain.org/api',
         'token_env': 'LINC_API_KEY',
         'token_required': True,
-        # All datasets except '000048' (OpenBNB) and '000004' (Mouse LSM).
-        # Exclude 000053 temporarily due to large number of assets.
+        # OpenBNB, Mouse LSM, and 000053 for now (too many assets)
         'exclude': ['000048', '000004', '000053'],
     },
     'DANDI': {
         'api_url': 'https://api.dandiarchive.org/api',
         'token_env': 'DANDI_API_KEY',
         'token_required': False,
-        # LINC-related datasets on dandiarchive.org.  Datasets that cannot be
-        # accessed (e.g. embargoed without an API key) are skipped.
+        # Inaccessible (e.g. embargoed) datasets are skipped
         'include': ['001278', '001372', '001411', '001412', '001769', '002048'],
     },
 }
@@ -69,20 +59,18 @@ ASSETS_CSV = './static/lincbrain_assets.csv'
 OME_ZARR = 'OME-Zarr'
 
 PAGE_SIZE = 1000
-# Concurrent requests for the pages of a listing, for the metadata of each
-# asset (if not included in the listing), and for OME-Zarr metadata
+# Concurrent requests
 PAGE_WORKERS = 8
 METADATA_WORKERS = 16
 ZARR_WORKERS = 16
 
-# Dataset-level BIDS files that do not belong to a subject
 DATASET_LEVEL_FILES = {'dataset_description.json', 'participants.tsv', 'participants.json',
                        'samples.tsv', 'samples.json', 'readme', 'readme.md', 'readme.txt',
                        'changes', '.bidsignore'}
 
 
 class ArchiveClient:
-    """Minimal client for the DANDI REST API, which lincbrain.org also implements."""
+    """DANDI API client (lincbrain.org runs the same API)."""
 
     def __init__(self, api_url, token=None):
         self.api_url = api_url
@@ -94,8 +82,7 @@ class ArchiveClient:
             self.session.headers['Authorization'] = f'token {token}'
 
     def check_token(self, token_env):
-        # An invalid key makes every request fail with 401, which would
-        # otherwise look like datasets that cannot be accessed.
+        # Otherwise an invalid key looks like inaccessible datasets
         response = self.session.get(f'{self.api_url}/auth/token/', timeout=120)
         if response.status_code in (401, 403):
             raise RuntimeError(f'{token_env} is not a valid API key for {self.api_url}')
@@ -115,7 +102,7 @@ class ArchiveClient:
             return
 
         if 'count' in first and parse_qs(urlparse(next_url).query).get('page') == ['2']:
-            # Numbered pages: fetch the others concurrently, keeping their order
+            # Fetch the other pages concurrently
             page_count = math.ceil(first['count'] / len(first['results']))
             with ThreadPoolExecutor(max_workers=PAGE_WORKERS) as executor:
                 pages = executor.map(lambda number: self.get(path, {**params, 'page': number}),
@@ -125,7 +112,6 @@ class ArchiveClient:
             return
 
         while next_url:
-            # The `next` URL already includes the query parameters
             response = self.session.get(next_url, timeout=120)
             response.raise_for_status()
             page = response.json()
@@ -134,17 +120,17 @@ class ArchiveClient:
 
 
 class StorageReader:
-    """Reads small files (e.g. Zarr metadata) from an archive's storage."""
+    """Reads small files from an archive's storage."""
 
     def __init__(self, client):
         self.client = client
-        # A separate session, so that the API key is never sent to the storage
+        # Never sends the API key to the storage
         self.storage = requests.Session()
         retries = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
         self.storage.mount('https://', HTTPAdapter(max_retries=retries, pool_maxsize=ZARR_WORKERS))
 
     def read_json(self, zarr_id, storage_url, name):
-        """Return the JSON file `name` of a Zarr archive, or None if it does not exist."""
+        """A Zarr archive's JSON file, or None if missing."""
         if storage_url:
             response = self.storage.get(storage_url + name, timeout=60)
             if response.status_code == 200:
@@ -153,8 +139,7 @@ class StorageReader:
                 return None
             if response.status_code != 403:
                 response.raise_for_status()
-        # Private storage: the API redirects to a signed URL (requests drops the
-        # API key when following a redirect to another host).
+        # Private storage: through the API, which redirects to a signed URL
         response = self.client.session.get(f'{self.client.api_url}/zarr/{zarr_id}/files/',
                                            params={'prefix': name, 'download': 'true'}, timeout=60)
         if response.status_code in (403, 404):
@@ -163,20 +148,19 @@ class StorageReader:
         return response.json()
 
     def read_text(self, asset_id, storage_url):
-        """Return the content of a (non-Zarr) asset as text."""
+        """An asset's content as text."""
         if storage_url:
             response = self.storage.get(storage_url, timeout=60)
             if response.status_code != 403:
                 response.raise_for_status()
                 return response.text
-        # Private storage: download through the API
         response = self.client.session.get(f'{self.client.api_url}/assets/{asset_id}/download/', timeout=60)
         response.raise_for_status()
         return response.text
 
 
 class BidsValidator:
-    """Checks file paths against the file name rules of the BIDS schema."""
+    """Checks file paths against the BIDS schema."""
 
     def __init__(self):
         import bidsschematools.rules
@@ -184,7 +168,7 @@ class BidsValidator:
         regexes, schema = bidsschematools.rules.regexify_all()
         self.bids_version = schema.bids_version
         self.patterns = [re.compile(entry['regex']) for entry in regexes]
-        # Allowed extensions of each suffix of each datatype, e.g. micr -> OCT -> .ome.zarr/
+        # e.g. micr -> OCT -> .ome.zarr/
         self.extensions = {}
         self._collect_extensions(schema.rules.files.raw)
 
@@ -199,19 +183,19 @@ class BidsValidator:
                 self._collect_extensions(rule)
 
     def status(self, path, is_directory=False, root='', ignore=()):
-        """Validate a path relative to the dataset, whose BIDS data is in `root`."""
+        """Validate a dataset path whose BIDS data is under `root`."""
         parts = path.split('/')
         if (parts[0] in BIDS_UNVALIDATED_FOLDERS or any(part.startswith('.') for part in parts)
                 or is_bidsignored(path, ignore)):
             return BIDS_NOT_VALIDATED
         if root and path.startswith(root):
             path = path[len(root):]
-        # OME-Zarr archives are directories: BIDS paths end with "/"
+        # OME-Zarr archives are folders
         target = f'{path}/' if is_directory else path
         return BIDS_VALID if any(pattern.match(target) for pattern in self.patterns) else BIDS_INVALID
 
     def issue(self, path, is_directory=False, root=''):
-        """A short explanation of why a path (with an invalid status) is not valid BIDS."""
+        """Why an invalid path is not valid BIDS."""
         if root and path.startswith(root):
             path = path[len(root):]
         parts = path.split('/')
@@ -249,7 +233,7 @@ def parse_bidsignore(text):
 
 
 def is_bidsignored(path, patterns):
-    """Whether a path matches .bidsignore patterns (gitignore-like)."""
+    """Whether a path matches .bidsignore patterns."""
     parts = path.split('/')
     folders_and_path = ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
     for pattern in patterns:
@@ -279,11 +263,11 @@ def add_bids_status(rows, assets, metadatas, reader):
 
 
 def ngff_version(attributes):
-    """The OME-NGFF version declared in a Zarr group's attributes."""
+    """The OME-NGFF version in a Zarr group's attributes."""
     ome = attributes.get('ome')
     if isinstance(ome, dict) and ome.get('version'):
-        return str(ome['version'])  # OME-Zarr 0.5 and later
-    # OME-Zarr 0.4 and earlier (also found in Zarr v3 groups)
+        return str(ome['version'])  # 0.5 and later
+    # 0.4 and earlier
     for group in (attributes, ome if isinstance(ome, dict) else {}):
         multiscales = group.get('multiscales')
         if isinstance(multiscales, list) and multiscales and isinstance(multiscales[0], dict):
@@ -296,8 +280,8 @@ def ngff_version(attributes):
 
 
 def ome_zarr_version(reader, zarr_id, storage_url):
-    """The OME-NGFF version of an OME-Zarr archive, or None if it cannot be read."""
-    # zarr.json for Zarr v3 (OME-Zarr 0.5 and later), .zattrs for Zarr v2
+    """An OME-Zarr archive's version, or None if unreadable."""
+    # zarr.json: Zarr v3; .zattrs: Zarr v2
     for name in ('zarr.json', '.zattrs'):
         document = reader.read_json(zarr_id, storage_url, name)
         if document is None:
@@ -305,7 +289,6 @@ def ome_zarr_version(reader, zarr_id, storage_url):
         attributes = document.get('attributes', {}) if name == 'zarr.json' else document
         version = ngff_version(attributes)
         if version is None and 'bioformats2raw.layout' in {**attributes, **(attributes.get('ome') or {})}:
-            # The image is in the first series
             series = reader.read_json(zarr_id, storage_url, f'0/{name}')
             if series is not None:
                 version = ngff_version(series.get('attributes', {}) if name == 'zarr.json' else series)
@@ -314,12 +297,12 @@ def ome_zarr_version(reader, zarr_id, storage_url):
 
 
 def storage_url(metadata):
-    """The asset's storage URL (e.g. on S3), rather than its API download URL."""
+    """The asset's storage (not API) URL."""
     return next((url for url in metadata.get('contentUrl') or [] if '/api/' not in url), None)
 
 
 def add_ome_zarr_versions(archive, client, rows, cache):
-    """Replace "OME-Zarr" extensions with e.g. "OME-Zarr v0.5"."""
+    """e.g. "OME-Zarr" -> "OME-Zarr v0.5"."""
     zarrs = [row for row in rows if row['Extension'] == OME_ZARR and row['_zarr']]
     pending = []
     for row in zarrs:
@@ -352,7 +335,7 @@ def add_ome_zarr_versions(archive, client, rows, cache):
 
 
 def load_cache(path=ASSETS_CSV):
-    """OME-Zarr extensions from the previous run, keyed by asset and upload date."""
+    """The previous run's OME-Zarr extensions."""
     if not os.path.exists(path):
         return {}
     previous = pd.read_csv(path, dtype=str, keep_default_na=False)
@@ -364,7 +347,6 @@ def load_cache(path=ASSETS_CSV):
 
 
 def warn(message):
-    # Shown as an annotation on the GitHub Actions run
     print(f'::warning::{message}')
 
 
@@ -375,14 +357,12 @@ def is_access_error(error):
 def parse_subject(path):
     parts = path.split('/')
 
-    # A subject directory, e.g. rawdata/sub-MR256/...
+    # e.g. rawdata/sub-MR256/...
     for part in parts[:-1]:
         if part.startswith('sub-') and '_' not in part and len(part) > len('sub-'):
             return part[len('sub-'):]
 
-    # Otherwise the BIDS `sub-<label>` entity of a file or directory name.
-    # BIDS labels are alphanumeric, so e.g. `sub-MF284-sample-slice036_...`
-    # gives MF284.
+    # Labels are alphanumeric: sub-MF284-sample-slice036_... gives MF284
     for part in parts:
         match = re.search(r'(?:^|_)sub-([A-Za-z0-9]+)', part)
         if match:
@@ -395,15 +375,13 @@ def parse_subject(path):
 
 
 def parse_sample(path):
-    """The tissue sample of a file: the BIDS `sample-<label>` entity of its
-    name, e.g. sub-MF284_sample-slice079_..., or else of the nearest folder,
-    e.g. sub-MR256_sample-slice0001/fixed.png. Empty if neither has one."""
+    """The BIDS sample- label of the file name, or else of the nearest folder."""
     parts = path.split('/')
     match = re.search(r'(?:^|_)sample-([A-Za-z0-9]+)', parts[-1])
     if match:
         return match.group(1)
     for part in reversed(parts[:-1]):
-        # Folder names may join entities with hyphens, e.g. sub-MF284-sample-slice079
+        # e.g. sub-MF284-sample-slice079
         match = re.search(r'(?:^|[_-])sample-([A-Za-z0-9]+)', part)
         if match:
             return match.group(1)
@@ -411,7 +389,7 @@ def parse_sample(path):
 
 
 def parse_stain(path):
-    """The BIDS `stain-<label>` entity of a file's name, e.g. LY. Empty if none."""
+    """The BIDS stain- label of the file name."""
     match = re.search(r'(?:^|_)stain-([A-Za-z0-9]+)', path.split('/')[-1])
     return match.group(1) if match else ''
 
@@ -421,18 +399,13 @@ def parse_modality(path):
     return next((value for key, value in modalities.items() if key in filename), 'Unknown')
 
 
-# Suffixes of compressed files, which keep the suffix before them (e.g. nii.gz)
 COMPRESSION_SUFFIXES = {'.gz', '.bz2', '.xz', '.zst'}
 
 
 def parse_extension(path):
-    """The file's extension, e.g. 'nii.gz' for mask.Img4905_left.nii.gz.
-
-    Only the last suffix counts, as file names often contain dots, along with
-    the one before it for compressed files.
-    """
+    """The last suffix, with the one before for compressed files: nii.gz for x.Img1.nii.gz."""
     if path.lower().endswith('.ome.zarr'):
-        return OME_ZARR  # the version is added by add_ome_zarr_versions
+        return OME_ZARR
     suffixes = Path(path).suffixes
     if len(suffixes) > 1 and suffixes[-1].lower() in COMPRESSION_SUFFIXES:
         return ''.join(suffixes[-2:])[1:]
@@ -440,7 +413,7 @@ def parse_extension(path):
 
 
 def to_utc_date(value):
-    """ISO 8601 timestamp -> UTC date, e.g. 2026-05-29T16:51:24-04:00 -> 2026-05-29."""
+    """ISO 8601 timestamp -> UTC date."""
     if not value:
         return ''
     try:
@@ -453,8 +426,6 @@ def to_utc_date(value):
 
 
 def asset_metadata(client, identifier, asset):
-    # The listing includes each asset's metadata when requested with
-    # metadata=true; otherwise fetch it separately.
     if 'metadata' in asset:
         return asset['metadata']
     return client.get(f'/dandisets/{identifier}/versions/{VERSION}/assets/{asset["asset_id"]}/')
@@ -465,7 +436,7 @@ def dataset_name(dandiset):
 
 
 def list_datasets(archive, client, config):
-    """Return {dataset identifier: name} for the datasets to index."""
+    """{identifier: name} of the datasets to index."""
     if 'include' in config:
         datasets = {}
         for identifier in config['include']:
@@ -484,7 +455,6 @@ def list_datasets(archive, client, config):
             if dandiset['identifier'] not in config['exclude']}
 
 
-# Create dataframes of all assets across all datasets, and of the datasets' names
 def extract_assets(archive, client, config, cache=None):
     datasets = list_datasets(archive, client, config)
 
@@ -500,7 +470,7 @@ def extract_assets(archive, client, config, cache=None):
             del datasets[identifier]
             continue
 
-        # An asset may be listed twice if the dataset changes while it is listed
+        # Listed twice if the dataset changed meanwhile
         assets = list({asset['asset_id']: asset for asset in assets}.values())
         print(f'{archive}:{identifier}: {len(assets)} assets', flush=True)
         if assets and 'metadata' not in assets[0]:
@@ -521,14 +491,11 @@ def extract_assets(archive, client, config, cache=None):
                 "Size (bytes)": asset['size'],
                 "Path": asset['path'],
                 "Extension": parse_extension(asset['path']),
-                # Last modification time of the file when it was uploaded
+                # The file's modification time
                 "Produced": to_utc_date(metadata.get('blobDateModified')),
-                # Upload time (set by dandi-cli); `created` changes when an asset is moved
                 "Uploaded": to_utc_date(metadata.get('dateModified') or asset.get('created')),
-                # Set by add_bids_status
                 "BIDS": '',
                 "BIDS issue": '',
-                # Set by apply_mappings, e.g. "Needs renaming: add the _SPIM suffix"
                 "Note": '',
                 "_zarr": asset.get('zarr'),
                 "_storage": storage_url(metadata),
@@ -559,8 +526,7 @@ def latest(values):
 
 
 def sample_keys(df):
-    """Each file's sample as subject/label (labels are only unique within a
-    subject), or empty."""
+    """Each file's sample as subject/label, or empty."""
     return (df['Subject'] + '/' + df['Sample']).where(df['Sample'] != '', '')
 
 
@@ -568,7 +534,6 @@ def count_samples(keys):
     return keys[keys != ''].nunique()
 
 
-# Summarize data across datasets
 def summarize_datasets(df, df_names):
     df_datasets = (df.assign(_sample=sample_keys(df))
                      .groupby(['Archive', 'Dataset'], sort=False)
@@ -585,7 +550,6 @@ def summarize_datasets(df, df_names):
                         "Extension", "First uploaded", "Last uploaded"]]
 
 
-# Summarize data across modalities
 def summarize_modalities(df):
     local_modalities = list(dict.fromkeys(modalities.values())) + ['Unknown']
 
@@ -619,13 +583,7 @@ def load_mappings(path=MAPPINGS_CSV):
 
 
 def apply_mappings(df, mappings):
-    """Fill unknown modalities and subjects from the mappings, and add their notes.
-
-    A mapping applies to the files of its dataset under its folder (the whole
-    dataset if the folder is empty). Its modality and subject only replace
-    "Unknown"; its note is added to the files it changed, or to all of its
-    files if it sets neither modality nor subject.
-    """
+    """Fill unknown modalities and subjects from the mappings, and add their notes."""
     records = df.to_dict('records')
     for record in records:
         notes = []
@@ -646,8 +604,7 @@ def apply_mappings(df, mappings):
 
 
 def load_sample_names(path=SAMPLES_CSV):
-    """Curated sample names, keyed by (archive, dataset, subject, label); an
-    empty subject stands for any subject of the dataset."""
+    """{(archive, dataset, subject or '', label): name}"""
     if not os.path.exists(path):
         return {}
     rows = pd.read_csv(path, dtype=str, keep_default_na=False).to_dict('records')
@@ -655,8 +612,7 @@ def load_sample_names(path=SAMPLES_CSV):
 
 
 def apply_sample_names(df, names):
-    """Rename the samples listed in curation/samples.csv, e.g. lefthemi to
-    LeftHemi, so that one sample spelled several ways counts once."""
+    """Rename samples as listed in curation/samples.csv."""
     if not names:
         return df
 
@@ -674,7 +630,7 @@ def apply_sample_names(df, names):
 
 
 def summarize_unmapped(df, depth=UNMAPPED_FOLDER_DEPTH):
-    """Folders (up to `depth` levels) with files of unknown modality or subject."""
+    """Folders with files of unknown modality or subject."""
     unknown = df[(df['Modality'] == 'Unknown') | (df['Subject'] == 'Unknown')]
     folders = unknown['Path'].map(lambda path: '/'.join(path.split('/')[:-1][:depth]))
     return (unknown.assign(Folder=folders)

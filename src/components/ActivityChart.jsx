@@ -24,14 +24,7 @@ function linePath(points) {
   return points.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join("");
 }
 
-/**
- * Running total of bytes (or files) by month, as lines stacked by modality.
- *
- * files: [{ Modality, size, Produced, Uploaded }]
- * basis: "Produced" | "Uploaded"
- * months: the months to show, "YYYY-MM"
- * modalities: modality names in stacking order
- */
+// Running total of bytes (or files) by month, stacked by modality
 export default function ActivityChart({ files, basis, months, modalities }) {
   const [metric, setMetric] = useState("size");
   const [active, setActive] = useState(null);
@@ -63,7 +56,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const cell = byMonth.get(month).get(modality);
     return cell ? value(cell) : 0;
   };
-  // Running totals of each modality, and of all of them
   const running = Object.fromEntries(shown.map((modality) => [modality, []]));
   const sums = Object.fromEntries(shown.map((modality) => [modality, 0]));
   months.forEach((month, i) => {
@@ -81,7 +73,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
     const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
     const max = totals[totals.length - 1];
-    // File counts are whole numbers, so their ticks are too
     const step = metric === "files" ? Math.max(1, niceStep(max)) : niceStep(max);
     const tickCount = Math.max(1, Math.ceil(max / step));
     const top = tickCount * step;
@@ -91,7 +82,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
     const x = (i) => MARGIN.left + (count > 1 ? i * spacing : innerWidth / 2);
     const labelEvery = spacing >= 30 ? 1 : spacing >= 12 ? 3 : 6;
 
-    // Stack the modalities' running totals, in order, from the bottom
     let lower = months.map(() => 0);
     const layers = shown.map((modality) => {
       const upper = lower.map((v, i) => v + running[modality][i]);
@@ -145,9 +135,7 @@ export default function ActivityChart({ files, basis, months, modalities }) {
           );
         })}
 
-        {/* Bands, then the line at the top of each band. Lines are drawn from the top
-            layer down, so that where a layer is too thin to see, its line does not
-            hide the line of the layer below. */}
+        {/* Lines from the top layer down, so that a thin layer's line does not hide the one below */}
         {count > 1 &&
           layers.map(({ modality, lower: bottom, upper }) => (
             <path
@@ -172,7 +160,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
             />
           ))}
 
-        {/* The hovered month: a vertical line and a marker on each line */}
         {(active !== null || count === 1) && (() => {
           const i = count === 1 ? 0 : active;
           return (
@@ -198,7 +185,6 @@ export default function ActivityChart({ files, basis, months, modalities }) {
           );
         })()}
 
-        {/* Hover and keyboard targets: one column around each month */}
         {months.map((month, i) => {
           const left = count > 1 ? Math.max(MARGIN.left, x(i) - spacing / 2) : MARGIN.left;
           const right = count > 1 ? Math.min(MARGIN.left + innerWidth, x(i) + spacing / 2) : MARGIN.left + innerWidth;
@@ -291,7 +277,7 @@ export default function ActivityChart({ files, basis, months, modalities }) {
       </div>
 
       {shown.length > 0 && <ModalityLegend names={shown} className={styles.legend} />}
-      {/* Always mounted, so that its width is known before the chart is drawn */}
+      {/* Always mounted, to measure its width */}
       <div className={styles.plot} ref={plotRef} onPointerLeave={() => setActive(null)}>
         {shown.length === 0 ? (
           <div className={styles.empty}>No dated files match these filters.</div>

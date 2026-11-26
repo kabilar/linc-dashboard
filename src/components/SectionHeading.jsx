@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import styles from "./SectionHeading.module.css";
 
-/**
- * A heading with a link to its section. Selecting the link puts it in the
- * address bar and copies it (with the current filters) to share.
- */
+// A heading whose link copies the section's address
 export default function SectionHeading({ as: Tag = "h2", id, className, children }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef(null);
@@ -20,7 +17,6 @@ export default function SectionHeading({ as: Tag = "h2", id, className, children
         clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(false), 2000);
       },
-      // The link is still in the address bar
       () => {},
     );
   }
@@ -43,13 +39,11 @@ export default function SectionHeading({ as: Tag = "h2", id, className, children
   );
 }
 
-// Scroll to the section named in the address bar once the page's data has
-// rendered: the browser looked for it on load, before it existed.
+// The browser looked for the section before the data rendered
 export function useScrollToHash() {
   useEffect(() => {
     const id = decodeURIComponent(window.location.hash.slice(1));
     if (!id) return undefined;
-    // Wait for the charts to measure their width and take their full height
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView());
     });

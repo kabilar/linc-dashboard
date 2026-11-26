@@ -7,14 +7,12 @@ import { ARCHIVES, formatBytes } from "./data";
 import { OVERVIEW_FILTERS, applyFilters, basisOf, sizeBy } from "./overview";
 import styles from "./Filters.module.css";
 
-// The filters of the home page and the Datasets page, from useOverview().
 export default function OverviewFilters({ files, filters, setFilters, deferred, modalities }) {
   const update = (changes) => setFilters({ ...filters, ...changes });
   const basis = basisOf(deferred);
   const selectedBasis = basisOf(filters);
 
-  // The size of the data for each option, within the other filters, so that
-  // each size is what selecting it would show
+  // Option sizes within the other filters
   const modalitySizes = useMemo(
     () => sizeBy(applyFilters(files, { ...deferred, Modality: [] }, basis), "Modality"),
     [files, deferred, basis],

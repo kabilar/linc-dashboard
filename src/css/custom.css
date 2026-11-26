@@ -1,27 +1,21 @@
-/* Override the default Infima variables, and the dashboard's colors.
-   Dark mode values are under [data-theme='dark'] below. */
+/* Infima variables and the dashboard's colors; dark mode below */
 :root {
   --ifm-color-primary: rgb(120, 88, 188);
 
-  /* Purple of filled controls and marks (e.g. selected buttons, heatmap cells) */
   --dashboard-accent: rgb(120, 88, 188);
   --dashboard-accent-hover: rgb(94, 64, 160);
   --dashboard-empty-cell: #ececf1;
   --dashboard-shadow: rgba(0, 0, 0, 0.12);
-  /* Notes about files that need attention */
   --dashboard-note-background: #fdf8e6;
   --dashboard-note-border: #f0dfa8;
   --dashboard-note-text: #5b4500;
-  --dashboard-footer-text: #606770;
   --dashboard-footer-border: #e3e5e8;
   --dashboard-badge-background: #fdf3d7;
   --dashboard-badge-text: #6b4e00;
-  /* Arrow of the dashboard's dropdowns */
   --dashboard-chevron-color: #606770;
   --dashboard-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.25 6 7.75l3.5-3.5' fill='none' stroke='%23606770' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
-  /* Modality colors: slots 1-6 of a categorical palette validated for
-     color-vision deficiencies (light and dark steps), and a neutral gray */
+  /* Modality colors, validated for color-vision deficiencies */
   --modality-1: #257de0;
   --modality-2: #f47230;
   --modality-3: #00b894;
@@ -33,7 +27,7 @@
 }
 
 [data-theme='dark'] {
-  /* Lighter purple, legible as link text on the dark background */
+  /* Legible on the dark background */
   --ifm-color-primary: rgb(177, 156, 240);
 
   --dashboard-accent-hover: rgb(150, 122, 222);
@@ -42,7 +36,6 @@
   --dashboard-note-background: #2b2618;
   --dashboard-note-border: #5c4d22;
   --dashboard-note-text: #f1dc9e;
-  --dashboard-footer-text: #8d949e;
   --dashboard-footer-border: #2e2f33;
   --dashboard-badge-background: #3a3116;
   --dashboard-badge-text: #f1dc9e;
@@ -59,7 +52,6 @@
   --modality-other: #8d9098;
 }
 
-/* Purple top navigation bar */
 .navbar {
   background-color: rgb(114, 78, 182);
 }
@@ -70,7 +62,7 @@
   color: rgb(255, 255, 255);
 }
 
-/* The current page's link stays white, underlined; others are underlined on hover */
+/* Current page: underlined */
 .navbar__link:hover,
 .navbar__link--active {
   color: rgb(255, 255, 255);
@@ -83,22 +75,24 @@
   text-decoration-color: rgba(255, 255, 255, 0.5);
 }
 
-/* The phone menu's header matches the navbar, so that its white logo shows */
+/* Purple, for the white logo */
 .navbar-sidebar__brand {
   background-color: rgb(114, 78, 182);
 }
 
-/* The light/dark mode switch and the menu's close button, on purple */
 .navbar .clean-btn {
   color: rgb(255, 255, 255);
 }
 
-/* Homepage header, above the dashboard, aligned with its left edge */
 .heroBanner {
-  padding: 2rem 0 0.25rem;
+  padding: 2rem 0 1rem;
 }
 
 .heroContent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1.25rem;
   width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
   max-width: calc(100% - 2 * var(--ifm-spacing-horizontal));
   margin: 0 auto;
@@ -106,18 +100,17 @@
 
 .heroTitle {
   font-size: 2.25rem;
-  margin-bottom: 0.35rem;
+  margin: 0;
 }
 
-/* The titles of the Datasets and Files pages, the size of the Overview's */
+/* Sized like the Overview's title */
 main article > header > h1 {
   font-size: 2.25rem;
 }
 
 .heroSubtitle {
-  max-width: 64rem;
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
+  margin: 0;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--ifm-color-emphasis-700);
 }
@@ -137,9 +130,7 @@ main article > header > h1 {
   }
 }
 
-/* Footer: "Last updated" on the left and the GitHub link on the right, on
-   the page's background below a thin line, lined up with the navbar's logo
-   and its light/dark mode switch */
+/* Aligned with the navbar */
 .footer {
   padding: 1.1rem 0;
   border-top: 1px solid var(--dashboard-footer-border);
@@ -169,22 +160,19 @@ main article > header > h1 {
 .footer__copyright {
   font-size: 0.875rem;
   white-space: nowrap;
-  color: var(--dashboard-footer-text);
+  color: var(--ifm-color-emphasis-700);
 }
 
 .footer__link-item:hover {
   color: var(--ifm-color-primary);
 }
 
-/* Page styling */
-/* Full width of the page column (95vw minus its padding), so that the
-   content does not overflow the viewport on small screens. */
+/* So that nothing overflows on phones */
 .viewer-card {
   width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
   max-width: 100%;
 }
 
-/* Main content of each page */
 .container:not(.footer .container) {
   max-width: 95vw !important;
   display: flex;

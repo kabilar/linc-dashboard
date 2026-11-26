@@ -51,7 +51,7 @@
 .caret {
   flex: none;
   margin-left: auto;
-  /* Same position as the arrow of the other dropdowns */
+  /* Aligned with the other dropdowns' arrows */
   margin-right: 0.05rem;
   color: var(--dashboard-chevron-color);
 }

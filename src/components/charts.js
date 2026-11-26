@@ -17,7 +17,6 @@ export function longMonth(month) {
   });
 }
 
-// Every month from `first` to `last` inclusive, as "YYYY-MM".
 export function monthRange(first, last) {
   const months = [];
   let [year, month] = first.split("-").map(Number);
@@ -44,8 +43,7 @@ export function monthEndValue(month) {
   return Date.UTC(year, index, 1);
 }
 
-// The smallest round step (1, 2, 2.5 or 5 x 10^n) that spans `max` in at
-// most `count` + 1 intervals, so the axis ends just above the data.
+// The smallest round step that spans `max` in at most `count` + 1 intervals
 export function niceStep(max, count = 4) {
   if (!(max > 0)) return 1;
   const power = 10 ** Math.floor(Math.log10(max / count));
@@ -59,7 +57,6 @@ export function formatCompact(value) {
   return compactFormat.format(value);
 }
 
-// Width of an element, updated when it resizes.
 export function useElementWidth(ref) {
   const [width, setWidth] = useState(0);
   useEffect(() => {

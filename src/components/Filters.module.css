@@ -1,4 +1,3 @@
-/* A row of filters above the content they scope. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -20,7 +19,6 @@
   color: var(--ifm-color-emphasis-800);
 }
 
-/* Filters in several rows (e.g. on the Files page) */
 .rows {
   flex-direction: column;
   flex-wrap: nowrap;
@@ -34,7 +32,6 @@
   gap: 0.75rem 1rem;
 }
 
-/* A search box among the filters */
 .search {
   display: flex;
   flex-direction: column;
@@ -91,7 +88,6 @@
   background-color: var(--ifm-color-emphasis-100);
 }
 
-/* The same arrow in every dropdown */
 .filter select {
   appearance: none;
   padding-right: 2rem;
@@ -102,7 +98,6 @@
   cursor: pointer;
 }
 
-/* Previous results stay visible, dimmed, while new filters are applied. */
 .stale {
   opacity: 0.6;
   transition: opacity 0.15s ease 0.1s;

@@ -2,22 +2,19 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 const PRODUCTION_URL = 'https://dashboard.lincbrain.org';
 
-// To build a preview hosted elsewhere, set SITE_URL and BASE_URL, e.g.
-//   SITE_URL=https://kabilar.github.io BASE_URL=/linc-dashboard/ npm run build
+// Previews set these, e.g. SITE_URL=https://kabilar.github.io BASE_URL=/linc-dashboard/
 const url = process.env.SITE_URL || PRODUCTION_URL;
 const baseUrl = process.env.BASE_URL || '/';
 const isProduction = url === PRODUCTION_URL;
 
-// The site is rebuilt after every data refresh and code change, so the time
-// of the build is when it was last updated.
+// Rebuilt after every data refresh and code change
 const builtAt = new Date();
-// e.g. "Nov 25, 2026"
 const builtOn = builtAt.toLocaleDateString('en-US', {dateStyle: 'medium', timeZone: 'UTC'});
 
 const config = {
   title: 'LINC Dashboard',
   staticDirectories: ['static'],
-  tagline: 'A summary of all LINC-related data. It is intended for the LINC project investigators. Data is indexed daily.',
+  tagline: "An overview of the LINC project's data on lincbrain.org and dandiarchive.org, for its investigators.",
   favicon: 'img/linc.logo.color+white.notext+square.png',
 
   url,
@@ -42,7 +39,7 @@ const config = {
           customCss: './src/css/custom.css',
         },
         docs: false,
-        // Analytics only for the production site, not for previews
+        // Production only
         gtag: isProduction
           ? {
               trackingID: 'G-9SBR1QJDN3',
@@ -68,7 +65,7 @@ const config = {
           src: 'img/linc.logo.color+black.alpha.notext.png',
         },
         items: [
-          // Highlighted on the home page only, rather than on every page under it
+          // Active on the home page only
           {to: '/', label: 'Overview', position: 'right', activeBaseRegex: `^${baseUrl}$`},
           {to: '/datasets', label: 'Datasets', position: 'right'},
           {to: '/files', label: 'Files', position: 'right'},
@@ -84,12 +81,11 @@ const config = {
             href: 'https://github.com/lincbrain/linc-dashboard',
           },
         ],
-        copyright: `Last updated <time datetime="${builtAt.toISOString()}">${builtOn}</time>`,
+        copyright: `Updated daily, last on <time datetime="${builtAt.toISOString()}">${builtOn}</time>`,
       },
       colorMode: {
         defaultMode: 'light',
         disableSwitch: false,
-        // Follow the visitor's system setting until they choose a mode
         respectPrefersColorScheme: true,
       },
       prism: {

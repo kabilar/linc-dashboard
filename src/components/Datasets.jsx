@@ -142,7 +142,7 @@ function summarizeDatasets(files, names) {
 function DatasetTable({ rows, names }) {
   const overview = useOverview(rows);
   const { deferred, isStale, filtered } = overview;
-  // Links to the invalid files keep the filters, so that they show the files counted
+  // Keep the filters, so that the link shows the files counted
   const datasetRows = useMemo(
     () =>
       summarizeDatasets(filtered, names).map((row) => ({
@@ -162,7 +162,7 @@ function DatasetTable({ rows, names }) {
           rowKey={datasetId}
           initialSort={{ key: "Dataset", direction: "asc" }}
           emptyMessage="No datasets match these filters."
-          // The site's mobile layout; the table needs about 1,300px
+          // Mobile layout: the table needs about 1,300px
           stackUpTo={996}
         />
       </div>
@@ -173,7 +173,6 @@ function DatasetTable({ rows, names }) {
 export default function Datasets() {
   const assets = useCsv("lincbrain_assets.csv");
   const datasets = useCsv("lincbrain_datasets.csv");
-  // Dataset names are optional: the tables work without them.
   const names = useMemo(
     () => new Map((datasets.rows ?? []).map((row) => [datasetId(row), row.Name ?? ""])),
     [datasets.rows],

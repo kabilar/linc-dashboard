@@ -8,7 +8,6 @@ import SectionHeading from "./SectionHeading";
 import { filesQuery } from "./overview";
 import styles from "./Charts.module.css";
 
-// Values of the Subject column that are not subjects
 const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 
 const LABEL_WIDTH = 170;
@@ -21,22 +20,14 @@ const MIN_WIDTH = 640;
 const MIN_BAR_WIDTH = 8;
 const DAY = 24 * 60 * 60 * 1000;
 
-/**
- * When each subject's data was produced (or uploaded), by modality.
- *
- * files: [{ Subject, Modality, DatasetId, Produced, Uploaded }]
- * basis: "Produced" | "Uploaded"
- * months: the months to show, "YYYY-MM"
- * includeUnknown: whether to show files of unknown modality
- * linkFilters: the page's filters, kept by links to the Files page
- */
+// When each subject's data was produced (or uploaded), by modality
 export default function SubjectTimeline({ files, basis, months, includeUnknown, linkFilters = {} }) {
   const scrollRef = useRef(null);
   const containerWidth = useElementWidth(scrollRef);
   const [active, setActive] = useState(null);
   const tooltipRef = useRef(null);
 
-  // Keep the tooltip within the chart's width, e.g. beside a long bar
+  // Keep the tooltip within the chart's width
   useLayoutEffect(() => {
     const tooltip = tooltipRef.current;
     const frame = scrollRef.current?.parentElement;
@@ -92,7 +83,7 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   }
 
   let plot = null;
-  // Shown outside the chart's scrolling frame, which would clip it
+  // Outside the scrolling frame, which would clip it
   let tooltip = null;
   if (containerWidth > 0 && lanes.length > 0 && months.length > 0) {
     const width = Math.max(MIN_WIDTH, containerWidth);
@@ -199,13 +190,11 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
     );
     if (active && positions.has(active)) {
       const { start, end, top, item } = positions.get(active);
-      // In the frame's coordinates, which scroll with the chart on small screens
       const frame = scrollRef.current;
       const visible = frame?.clientWidth ?? width;
       const barStart = start - (frame?.scrollLeft ?? 0);
       const barEnd = end - (frame?.scrollLeft ?? 0);
-      // Beside the bar: after its end, or before its start near the right edge;
-      // and below its top, or above its bottom in the lower half of the chart
+      // Beside the bar, and above it in the chart's lower half
       const onRight = barEnd < visible - 240;
       const below = top < height / 2;
       tooltip = (

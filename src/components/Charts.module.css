@@ -48,7 +48,7 @@
   overflow-x: auto;
 }
 
-/* Around a scrolling chart, for a tooltip that may extend past it */
+/* Lets the tooltip extend past a scrolling chart */
 .frame {
   position: relative;
 }

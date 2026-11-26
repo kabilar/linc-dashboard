@@ -4,7 +4,7 @@ import { compareLabels, formatNumber } from "./data";
 import InfoTip from "./InfoTip";
 import styles from "./DataTable.module.css";
 
-// A comma-separated list that collapses when it has many items.
+// Collapses long lists
 export function ExpandableList({ items, limit = 12 }) {
   const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return <span className={styles.muted}>—</span>;
@@ -28,8 +28,6 @@ export function ExpandableList({ items, limit = 12 }) {
   );
 }
 
-// Whether the screen is at most `width` px wide (never when width is unset,
-// or when rendering on the server).
 function useMaxWidth(width) {
   const query = `(max-width: ${width}px)`;
   return useSyncExternalStore(
@@ -58,16 +56,7 @@ function SortIndicator({ direction }) {
   );
 }
 
-/**
- * A sortable (and optionally paginated) table.
- *
- * columns: [{ key, label, description?, align?, className?, render?(row), sortValue?(row), sortable?, stackHeading? }]
- * A column's description is shown with an info button next to its header.
- * rowKey: (row) => unique key; rows keep their state (e.g. expanded lists) when re-sorted.
- * stackUpTo: a screen width in px. On screens up to that wide, each row is shown
- * as a block of labeled lines (headed by its first cell, and by any stackHeading
- * cells, without labels) instead of a table that scrolls sideways.
- */
+// A sortable, optionally paginated table; rows stack into labeled blocks on screens up to `stackUpTo` px
 export default function DataTable({
   columns,
   rows,
@@ -97,7 +86,6 @@ export default function DataTable({
       .map(([, row]) => row);
   }, [rows, columns, sort]);
 
-  // Go back to the first page whenever the rows or their order change.
   useEffect(() => setPage(0), [rows, sort, pageSize]);
 
   const pageCount = paginate ? Math.max(1, Math.ceil(sortedRows.length / pageSize)) : 1;
@@ -107,7 +95,6 @@ export default function DataTable({
 
   function goToPage(index) {
     setPage(index);
-    // Bring the top of the table back into view when paging from the bottom.
     const wrapper = wrapperRef.current;
     if (wrapper && wrapper.getBoundingClientRect().top < 0) {
       wrapper.scrollIntoView({ block: "start" });
@@ -165,7 +152,6 @@ export default function DataTable({
               visibleRows.map((row, index) => (
                 <tr key={rowKey(row) ?? start + index}>
                   {columns.map((column) => {
-                    // A stacked block leaves out an empty heading line
                     if (stacked && column.stackHeading && (row[column.key] ?? "") === "") return null;
                     const content = column.render ? column.render(row) : row[column.key];
                     return (

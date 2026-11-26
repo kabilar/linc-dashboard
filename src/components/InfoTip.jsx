@@ -1,14 +1,14 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import styles from "./InfoTip.module.css";
 
-// An "i" button that explains something, shown on hover, keyboard focus or tap.
+// An "i" button with a tooltip
 export default function InfoTip({ label, children }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const tooltipRef = useRef(null);
   const id = useId();
 
-  // Shift the tooltip sideways if it would run off either edge of the screen
+  // Keep the tooltip on screen
   useLayoutEffect(() => {
     const tooltip = tooltipRef.current;
     if (!open || !tooltip) return;
@@ -48,8 +48,7 @@ export default function InfoTip({ label, children }) {
         aria-label={label}
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
-        // Open on tap or click (closed by tapping elsewhere, Escape or moving away),
-        // and on keyboard focus only: a tap also focuses the button.
+        // Opens on tap, and on keyboard focus only (a tap also focuses)
         onClick={() => setOpen(true)}
         onFocus={(event) => event.currentTarget.matches(":focus-visible") && setOpen(true)}
         onBlur={() => setOpen(false)}>

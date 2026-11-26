@@ -32,12 +32,7 @@ const INVALID_BIDS = "Invalid";
 
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 
-// Dropdown filters. `key` is the field of each file, `param` the URL query
-// parameter, `multi` whether several values can be chosen, `allLabel` the
-// choice of all values, `format` the option text, `compare` the option order,
-// and `optionsIgnore` the filters its options do not depend on. Modality and
-// Archive come first, as on the Overview and Datasets pages; the others follow
-// on a second row.
+// Dropdowns; Modality and Archive are also on the Overview and Datasets pages
 const FILTERS = [
   {
     key: "Archive",
@@ -46,8 +41,7 @@ const FILTERS = [
     allLabel: "All archives",
     format: (archive) => ARCHIVES[archive]?.host ?? archive,
     compare: (a, b) => ARCHIVE_ORDER.indexOf(a) - ARCHIVE_ORDER.indexOf(b),
-    // Every archive stays on offer while a dataset is selected: choosing
-    // another archive clears the dataset.
+    // Choosing another archive clears the dataset
     optionsIgnore: ["DatasetId"],
   },
   {
@@ -58,7 +52,6 @@ const FILTERS = [
     compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
   },
   { key: "Subject", param: "subject", allLabel: "All subjects" },
-  // The tissue sample, e.g. slice079 (labels are only unique within a subject)
   { key: "Sample", param: "sample", allLabel: "All samples" },
   {
     key: "Modality",
@@ -69,9 +62,7 @@ const FILTERS = [
     color: modalityColor,
   },
   { key: "Extension", param: "extension", allLabel: "All extensions" },
-  // e.g. LY
   { key: "Stain", param: "stain", allLabel: "All stains" },
-  // e.g. "Needs renaming: add the _SPIM suffix"
   { key: "Note", param: "note", allLabel: "All files" },
   {
     key: "BIDS",
@@ -85,8 +76,6 @@ const FILTER_BY_KEY = Object.fromEntries(FILTERS.map((filter) => [filter.key, fi
 const SHARED_DROPDOWNS = ["Modality", "Archive"];
 const FILE_DROPDOWNS = ["DatasetId", "Subject", "Sample", "Extension", "Stain", "Note", "BIDS"];
 
-// All filters, with their URL query parameters: the dropdowns, the dates (as on
-// the Overview and Datasets pages) and the search box
 const FILTER_SCHEMA = {
   ...Object.fromEntries(FILTERS.map(({ key, param, multi }) => [key, { param, multi }])),
   Dates: OVERVIEW_FILTERS.Dates,
@@ -169,7 +158,6 @@ const COLUMNS = [
   },
 ];
 
-// Whether a file's date (produced or uploaded) is within the From and To months
 function inDates(file, filters) {
   const { From: from, To: to } = filters;
   if (!from && !to) return true;
@@ -178,7 +166,7 @@ function inDates(file, filters) {
 }
 
 function FilesTable({ rows, csvUrl }) {
-  // Modality, Archive and the dates carry over from the Overview and Datasets pages
+  // Shared with the Overview and Datasets pages
   const [filters, setFilters] = useUrlFilters(FILTER_SCHEMA, { carry: "overview" });
   const deferredFilters = useDeferredValue(filters);
   const deferredQuery = deferredFilters.Query.trim().toLowerCase();
@@ -200,9 +188,7 @@ function FilesTable({ rows, csvUrl }) {
     [rows],
   );
 
-  // Options for each dropdown: the values among the files that match the search,
-  // the dates and every other filter, with the size of their data. So no option
-  // leads to an empty table, and each size is what selecting it would show.
+  // Each dropdown's options within the other filters, with their sizes
   const options = useMemo(() => {
     const sizes = Object.fromEntries(FILTERS.map(({ key }) => [key, new Map()]));
     for (const file of files) {
@@ -212,8 +198,7 @@ function FilesTable({ rows, csvUrl }) {
         const value = deferredFilters[key];
         return multi ? value.length && !value.includes(file[key]) : value && file[key] !== value;
       }).map(({ key }) => key);
-      // A file counts for a filter's options if it fails no other filter (or
-      // only ones the options ignore)
+      // Counts for a filter if it fails no other (or only an ignored) filter
       for (const { key, optionsIgnore = [] } of FILTERS) {
         if (failed.every((other) => other === key || optionsIgnore.includes(other))) {
           sizes[key].set(file[key], (sizes[key].get(file[key]) ?? 0) + file.size);
@@ -239,7 +224,6 @@ function FilesTable({ rows, csvUrl }) {
     [files, deferredFilters, deferredQuery],
   );
 
-  // Months with files, by the date the Dates filter goes by
   const selectedBasis = basisOf(filters);
   const monthOptions = useMemo(
     () => [...new Set(files.map((file) => file[selectedBasis].slice(0, 7)).filter(Boolean))].sort(),
@@ -304,7 +288,6 @@ function FilesTable({ rows, csvUrl }) {
   return (
     <>
       <div className={`${filterStyles.toolbar} ${filterStyles.rows}`}>
-        {/* The filters of the Overview and Datasets pages, as there */}
         <div className={filterStyles.row}>
           {SHARED_DROPDOWNS.map(renderDropdown)}
           <div className={filterStyles.filter}>
@@ -341,7 +324,6 @@ function FilesTable({ rows, csvUrl }) {
             </button>
           )}
         </div>
-        {/* Filters of the files only */}
         <div className={filterStyles.row}>
           <label className={filterStyles.search}>
             <span>Search</span>
@@ -377,8 +359,7 @@ function FilesTable({ rows, csvUrl }) {
   );
 }
 
-// Files that need attention among those shown: not valid BIDS, or with a note
-// such as "Needs renaming: add the _SPIM suffix". Each line can filter to them.
+// Files that need attention: invalid BIDS, or with a note
 function FileNotes({ files, filters, onShow }) {
   const { invalidBids, notes } = useMemo(() => {
     let invalid = 0;
@@ -390,7 +371,6 @@ function FileNotes({ files, filters, onShow }) {
     return { invalidBids: invalid, notes: [...counts].sort(([a], [b]) => compareLabels(a, b)) };
   }, [files]);
 
-  // Leave out the lines whose filter is already applied
   const lines = [
     ...(invalidBids > 0 && filters.BIDS !== INVALID_BIDS
       ? [{ key: "BIDS", value: INVALID_BIDS, count: invalidBids, text: "Not valid BIDS" }]
