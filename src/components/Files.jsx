@@ -65,7 +65,16 @@ const FILTERS = [
   },
   { key: "Extension", param: "extension", allLabel: "All extensions", noneLabel: "No extension" },
   { key: "Stain", param: "stain", allLabel: "All stains", noneLabel: "No stain" },
-  { key: "Note", label: "Notes", param: "note", allLabel: "All files", anyLabel: "Any note", noneLabel: "No note" },
+  // A file can have several notes, separated by "; "
+  {
+    key: "Note",
+    label: "Notes",
+    param: "note",
+    allLabel: "All files",
+    anyLabel: "Any note",
+    noneLabel: "No note",
+    split: "; ",
+  },
   {
     key: "BIDS",
     param: "bids",
@@ -116,7 +125,12 @@ const COLUMNS = [
         <Link to={assetFolderUrl(row)} title={`Open the folder on ${ARCHIVES[row.Archive]?.host ?? "its archive"}`}>
           {row.Path}
         </Link>
-        {row.Note !== NONE && <span className={styles.note}>{row.Note}</span>}
+        {row.NoteList[0] !== NONE &&
+          row.NoteList.map((note) => (
+            <span key={note} className={styles.note}>
+              {note}
+            </span>
+          ))}
       </>
     ),
   },
@@ -160,9 +174,18 @@ const COLUMNS = [
   },
 ];
 
-function matches(value, selected, multi) {
-  if (multi) return !selected.length || selected.includes(value);
-  return !selected || (selected === ANY ? value !== NONE : value === selected);
+// A filter's values for a file: a list for filters with several values per file
+function valuesOf(file, { key, split }) {
+  return split ? file[`${key}List`] : null;
+}
+
+function matches(file, filter, selected) {
+  const values = valuesOf(file, filter);
+  const has = (value) => (values ? values.includes(value) : file[filter.key] === value);
+  if (filter.multi) return !selected.length || selected.some(has);
+  if (!selected) return true;
+  if (selected === ANY) return (values ? values[0] : file[filter.key]) !== NONE;
+  return has(selected);
 }
 
 function optionLabel({ format = (option) => option, anyLabel, noneLabel = "None" }, option) {
@@ -190,8 +213,9 @@ function FilesTable({ rows, csvUrl }) {
         const file = { ...row, id: index, size: toNumber(row["Size (bytes)"]) };
         file.DatasetId = datasetId(row);
         file.Archive = splitId(file.DatasetId).Archive;
-        for (const { key } of FILTERS) {
+        for (const { key, split } of FILTERS) {
           if (!file[key]) file[key] = NONE;
+          if (split) file[`${key}List`] = file[key] === NONE ? [NONE] : file[key].split(split);
         }
         file.searchText = [file.DatasetId, file.Subject, file.Modality, file.Path, file.Extension]
           .join(" ")
@@ -204,25 +228,29 @@ function FilesTable({ rows, csvUrl }) {
   // Each dropdown's options within the other filters, with their sizes
   const options = useMemo(() => {
     const sizes = Object.fromEntries(FILTERS.map(({ key }) => [key, new Map()]));
+    const anySizes = Object.fromEntries(FILTERS.map(({ key }) => [key, 0]));
     for (const file of files) {
       if (deferredQuery && !file.searchText.includes(deferredQuery)) continue;
       if (!inDates(file, deferredFilters)) continue;
-      const failed = FILTERS.filter(({ key, multi }) => !matches(file[key], deferredFilters[key], multi)).map(
-        ({ key }) => key,
-      );
+      const failed = FILTERS.filter((filter) => !matches(file, filter, deferredFilters[filter.key])).map(({ key }) => key);
       // Counts for a filter if it fails no other (or only an ignored) filter
-      for (const { key, optionsIgnore = [] } of FILTERS) {
-        if (failed.every((other) => other === key || optionsIgnore.includes(other))) {
+      for (const filter of FILTERS) {
+        const { key, optionsIgnore = [] } = filter;
+        if (!failed.every((other) => other === key || optionsIgnore.includes(other))) continue;
+        const values = valuesOf(file, filter);
+        if (values) {
+          for (const value of values) sizes[key].set(value, (sizes[key].get(value) ?? 0) + file.size);
+        } else {
           sizes[key].set(file[key], (sizes[key].get(file[key]) ?? 0) + file.size);
         }
+        if ((values ? values[0] : file[key]) !== NONE) anySizes[key] += file.size;
       }
     }
     // "None" last, and "Any" first where a filter has it
     return Object.fromEntries(
       FILTERS.map(({ key, compare = compareLabels, anyLabel }) => {
         const values = [...sizes[key]].sort(([a], [b]) => (a === NONE) - (b === NONE) || compare(a, b));
-        const some = values.filter(([value]) => value !== NONE);
-        const any = anyLabel && some.length ? [[ANY, some.reduce((sum, [, size]) => sum + size, 0)]] : [];
+        const any = anyLabel && anySizes[key] > 0 ? [[ANY, anySizes[key]]] : [];
         return [key, [...any, ...values]];
       }),
     );
@@ -232,7 +260,7 @@ function FilesTable({ rows, csvUrl }) {
     () =>
       files.filter(
         (file) =>
-          FILTERS.every(({ key, multi }) => matches(file[key], deferredFilters[key], multi)) &&
+          FILTERS.every((filter) => matches(file, filter, deferredFilters[filter.key])) &&
           inDates(file, deferredFilters) &&
           (!deferredQuery || file.searchText.includes(deferredQuery)),
       ),
@@ -382,7 +410,9 @@ function FileNotes({ files, filters, onShow }) {
     const counts = new Map();
     for (const file of files) {
       if (file.BIDS === INVALID_BIDS) invalid += 1;
-      if (file.Note !== NONE) counts.set(file.Note, (counts.get(file.Note) ?? 0) + 1);
+      for (const note of file.NoteList) {
+        if (note !== NONE) counts.set(note, (counts.get(note) ?? 0) + 1);
+      }
     }
     return { invalidBids: invalid, notes: [...counts].sort(([a], [b]) => compareLabels(a, b)) };
   }, [files]);

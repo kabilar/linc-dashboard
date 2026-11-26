@@ -59,6 +59,10 @@ ASSETS_CSV = './static/lincbrain_assets.csv'
 OME_ZARR = 'OME-Zarr'
 # Note for archives named .ome.zarr whose Zarr metadata has no OME-Zarr part
 MISSING_OME_METADATA = 'Missing OME-Zarr metadata: add multiscales to the root group'
+# Notes for derivatives that cannot be validated as BIDS-Derivatives datasets
+NOT_IN_PIPELINE_FOLDER = 'Not in a pipeline folder: move to derivatives/<pipeline>/'
+MISSING_DERIVATIVES_DESCRIPTION = 'Missing derivatives description: add dataset_description.json to its pipeline folder'
+NOTE_SEPARATOR = '; '
 
 # GitHub rejects files over 100 MB
 MAX_CSV_BYTES = 95_000_000
@@ -250,6 +254,26 @@ def is_bidsignored(path, patterns):
     return False
 
 
+def add_note(row, note):
+    notes = row['Note'].split(NOTE_SEPARATOR) if row['Note'] else []
+    if note not in notes:
+        row['Note'] = NOTE_SEPARATOR.join(notes + [note])
+
+
+def add_derivatives_notes(rows):
+    """Note a dataset's derivatives that are not in derivatives/<pipeline>/ with a dataset_description.json."""
+    described = {row['Path'].split('/')[1] for row in rows
+                 if re.fullmatch(r'derivatives/[^/]+/dataset_description\.json', row['Path'])}
+    for row in rows:
+        parts = row['Path'].split('/')
+        if parts[0] != 'derivatives' or len(parts) < 2:
+            continue
+        if parts[1].startswith('sub-'):
+            add_note(row, NOT_IN_PIPELINE_FOLDER)
+        elif len(parts) > 2 and parts[1] not in described:
+            add_note(row, MISSING_DERIVATIVES_DESCRIPTION)
+
+
 def add_bids_status(rows, assets, metadatas, reader):
     """Set the BIDS status of a dataset's files."""
     ignore = []
@@ -332,7 +356,7 @@ def add_ome_zarr_versions(archive, client, rows, cache):
         if version:
             row['Extension'] = f'{OME_ZARR} v{version}'
         elif version == '':
-            row['Note'] = MISSING_OME_METADATA
+            add_note(row, MISSING_OME_METADATA)
 
     missing = versions.count('')
     unknown = versions.count(None)
@@ -509,6 +533,7 @@ def extract_assets(archive, client, config, cache=None):
                 "_storage": storage_url(metadata),
             })
         add_bids_status(latest_assets[first_row:], assets, metadatas, StorageReader(client))
+        add_derivatives_notes(latest_assets[first_row:])
 
     add_ome_zarr_versions(archive, client, latest_assets, cache or {})
     for row in latest_assets:
@@ -594,7 +619,7 @@ def apply_mappings(df, mappings):
     """Fill unknown modalities and subjects from the mappings, and add their notes."""
     records = df.to_dict('records')
     for record in records:
-        notes = [record['Note']] if record['Note'] else []
+        notes = record['Note'].split(NOTE_SEPARATOR) if record['Note'] else []
         for mapping in mappings:
             if (mapping['Archive'], mapping['Dataset']) != (record['Archive'], record['Dataset']):
                 continue
@@ -607,7 +632,7 @@ def apply_mappings(df, mappings):
                     applied = True
             if applied and mapping['Note'] and mapping['Note'] not in notes:
                 notes.append(mapping['Note'])
-        record['Note'] = '; '.join(notes)
+        record['Note'] = NOTE_SEPARATOR.join(notes)
     return pd.DataFrame(records, columns=df.columns)
 
 

@@ -22,9 +22,19 @@ Mappings only replace "Unknown": a file whose name gives its modality or
 subject keeps it. When several mappings match a file, the most specific folder
 wins.
 
-`extract_metadata.py` also adds a note to OME-Zarr archives that have no
-OME-Zarr metadata (no `multiscales` in the root group), which viewers cannot
-open as images: `Missing OME-Zarr metadata: add multiscales to the root group`.
+`extract_metadata.py` also adds notes itself, and a file can have several
+(separated by `; `):
+
+- `Missing OME-Zarr metadata: add multiscales to the root group`: OME-Zarr
+  archives without OME-Zarr metadata, which viewers cannot open as images.
+- `Not in a pipeline folder: move to derivatives/<pipeline>/`: derivatives
+  under `derivatives/sub-<label>/` (or directly in `derivatives/`).
+- `Missing derivatives description: add dataset_description.json to its
+  pipeline folder`: derivatives in a `derivatives/<pipeline>/` folder that has
+  no `dataset_description.json`.
+
+The last two are why derivatives cannot be validated as BIDS-Derivatives
+datasets.
 
 ## `samples.csv` (edited by hand)
 
