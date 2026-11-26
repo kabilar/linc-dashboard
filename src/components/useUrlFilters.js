@@ -40,13 +40,26 @@ export function hasFilters(schema, filters) {
   return Object.entries(schema).some(([key, { multi }]) => (multi ? filters[key].length > 0 : filters[key].trim() !== ""));
 }
 
+// The latest filters of each group of pages that share them, by `carry` name
+const carried = new Map();
+
 // Filter state kept in sync with the URL, so that filtered views can be shared
 // and bookmarked. `schema` must be a constant.
-export default function useUrlFilters(schema) {
+//
+// Pages with the same `carry` name share their filters: one opened without
+// filters in its URL takes those last used on any of them in this browser tab
+// (a link with filters of its own opens as it is).
+export default function useUrlFilters(schema, { carry } = {}) {
   const location = useLocation();
   const history = useHistory();
-  const [filters, setFilters] = useState(() => readFilters(schema, location.search));
+  const [filters, setFilters] = useState(() =>
+    readFilters(schema, location.search || (carry && carried.get(carry)) || ""),
+  );
   const lastSearch = useRef(location.search);
+
+  useEffect(() => {
+    if (carry) carried.set(carry, filtersToSearch(schema, filters));
+  }, [carry, schema, filters]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {

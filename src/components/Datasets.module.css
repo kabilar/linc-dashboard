@@ -1,0 +1,11 @@
+.nowrap {
+  white-space: nowrap;
+}
+
+.name {
+  min-width: 11rem;
+}
+
+.muted {
+  color: var(--ifm-color-emphasis-500);
+}

@@ -73,3 +73,9 @@
   background-size: 0.75rem;
   cursor: pointer;
 }
+
+/* Previous results stay visible, dimmed, while new filters are applied. */
+.stale {
+  opacity: 0.6;
+  transition: opacity 0.15s ease 0.1s;
+}
