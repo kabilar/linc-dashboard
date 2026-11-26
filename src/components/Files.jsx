@@ -3,6 +3,7 @@ import Link from "@docusaurus/Link";
 import DataTable from "./DataTable";
 import LoadingState from "./LoadingState";
 import MultiSelect from "./MultiSelect";
+import Segmented from "./Segmented";
 import useUrlFilters, { emptyFilters, hasFilters } from "./useUrlFilters";
 import { compareModalities, modalityColor } from "./modalities";
 import {
@@ -21,7 +22,9 @@ import {
   BIDS_DESCRIPTION,
   BIDS_STATUSES,
 } from "./data";
+import { OVERVIEW_FILTERS, basisOf } from "./overview";
 import styles from "./Files.module.css";
+import filterStyles from "./Filters.module.css";
 
 const ASSETS_CSV = "lincbrain_assets.csv";
 const NONE = "(none)";
@@ -29,15 +32,18 @@ const INVALID_BIDS = "Invalid";
 
 const ARCHIVE_ORDER = Object.keys(ARCHIVES);
 
-// Dropdown filters, in display order. `key` is the field of each file,
-// `param` the URL query parameter, `multi` whether several values can be
-// chosen, `format` the option text, `compare` the option order, and
-// `optionsIgnore` the filters its options do not depend on.
+// Dropdown filters. `key` is the field of each file, `param` the URL query
+// parameter, `multi` whether several values can be chosen, `allLabel` the
+// choice of all values, `format` the option text, `compare` the option order,
+// and `optionsIgnore` the filters its options do not depend on. Modality and
+// Archive come first, as on the Overview and Datasets pages; the others follow
+// on a second row.
 const FILTERS = [
   {
     key: "Archive",
     label: "Archive",
     param: "archive",
+    allLabel: "All archives",
     format: (archive) => ARCHIVES[archive]?.host ?? archive,
     compare: (a, b) => ARCHIVE_ORDER.indexOf(a) - ARCHIVE_ORDER.indexOf(b),
     // Every archive stays on offer while a dataset is selected: choosing
@@ -48,27 +54,44 @@ const FILTERS = [
     key: "DatasetId",
     label: "Dataset",
     param: "dataset",
+    allLabel: "All datasets",
     compare: (a, b) => compareLabels(datasetSortKey(splitId(a)), datasetSortKey(splitId(b))),
   },
-  { key: "Subject", param: "subject" },
+  { key: "Subject", param: "subject", allLabel: "All subjects" },
   // The tissue sample, e.g. slice079 (labels are only unique within a subject)
-  { key: "Sample", param: "sample" },
-  { key: "Modality", param: "modality", multi: true, compare: compareModalities, color: modalityColor },
-  { key: "Extension", param: "extension" },
+  { key: "Sample", param: "sample", allLabel: "All samples" },
+  {
+    key: "Modality",
+    param: "modality",
+    multi: true,
+    allLabel: "All modalities",
+    compare: compareModalities,
+    color: modalityColor,
+  },
+  { key: "Extension", param: "extension", allLabel: "All extensions" },
   // e.g. LY
-  { key: "Stain", param: "stain" },
+  { key: "Stain", param: "stain", allLabel: "All stains" },
   // e.g. "Needs renaming: add the _SPIM suffix"
-  { key: "Note", param: "note" },
+  { key: "Note", param: "note", allLabel: "All files" },
   {
     key: "BIDS",
     param: "bids",
+    allLabel: "All files",
     compare: (a, b) => BIDS_STATUSES.indexOf(a) - BIDS_STATUSES.indexOf(b),
   },
 ];
 
-// All filters, including the search box, with their URL query parameters
+const FILTER_BY_KEY = Object.fromEntries(FILTERS.map((filter) => [filter.key, filter]));
+const SHARED_DROPDOWNS = ["Modality", "Archive"];
+const FILE_DROPDOWNS = ["DatasetId", "Subject", "Sample", "Extension", "Stain", "Note", "BIDS"];
+
+// All filters, with their URL query parameters: the dropdowns, the dates (as on
+// the Overview and Datasets pages) and the search box
 const FILTER_SCHEMA = {
   ...Object.fromEntries(FILTERS.map(({ key, param, multi }) => [key, { param, multi }])),
+  Dates: OVERVIEW_FILTERS.Dates,
+  From: OVERVIEW_FILTERS.From,
+  To: OVERVIEW_FILTERS.To,
   Query: { param: "q" },
 };
 
@@ -146,8 +169,17 @@ const COLUMNS = [
   },
 ];
 
+// Whether a file's date (produced or uploaded) is within the From and To months
+function inDates(file, filters) {
+  const { From: from, To: to } = filters;
+  if (!from && !to) return true;
+  const month = file[basisOf(filters)].slice(0, 7);
+  return Boolean(month) && (!from || month >= from) && (!to || month <= to);
+}
+
 function FilesTable({ rows, csvUrl }) {
-  const [filters, setFilters] = useUrlFilters(FILTER_SCHEMA);
+  // Modality, Archive and the dates carry over from the Overview and Datasets pages
+  const [filters, setFilters] = useUrlFilters(FILTER_SCHEMA, { carry: "overview" });
   const deferredFilters = useDeferredValue(filters);
   const deferredQuery = deferredFilters.Query.trim().toLowerCase();
 
@@ -168,13 +200,14 @@ function FilesTable({ rows, csvUrl }) {
     [rows],
   );
 
-  // Options for each dropdown: the values among the files that match the search
-  // and every other filter, with the size of their data. So no option leads to
-  // an empty table, and each size is what selecting it would show.
+  // Options for each dropdown: the values among the files that match the search,
+  // the dates and every other filter, with the size of their data. So no option
+  // leads to an empty table, and each size is what selecting it would show.
   const options = useMemo(() => {
     const sizes = Object.fromEntries(FILTERS.map(({ key }) => [key, new Map()]));
     for (const file of files) {
       if (deferredQuery && !file.searchText.includes(deferredQuery)) continue;
+      if (!inDates(file, deferredFilters)) continue;
       const failed = FILTERS.filter(({ key, multi }) => {
         const value = deferredFilters[key];
         return multi ? value.length && !value.includes(file[key]) : value && file[key] !== value;
@@ -200,9 +233,17 @@ function FilesTable({ rows, csvUrl }) {
             const value = deferredFilters[key];
             return multi ? !value.length || value.includes(file[key]) : !value || file[key] === value;
           }) &&
+          inDates(file, deferredFilters) &&
           (!deferredQuery || file.searchText.includes(deferredQuery)),
       ),
     [files, deferredFilters, deferredQuery],
+  );
+
+  // Months with files, by the date the Dates filter goes by
+  const selectedBasis = basisOf(filters);
+  const monthOptions = useMemo(
+    () => [...new Set(files.map((file) => file[selectedBasis].slice(0, 7)).filter(Boolean))].sort(),
+    [files, selectedBasis],
   );
 
   const totalSize = useMemo(() => filteredFiles.reduce((sum, file) => sum + file.size, 0), [filteredFiles]);
@@ -222,58 +263,97 @@ function FilesTable({ rows, csvUrl }) {
     setFilters(emptyFilters(FILTER_SCHEMA));
   }
 
+  function renderDropdown(key) {
+    const { label = key, multi, allLabel, color, format = (option) => option } = FILTER_BY_KEY[key];
+    const value = filters[key];
+    if (multi) {
+      return (
+        <MultiSelect
+          key={key}
+          label={label}
+          allLabel={allLabel}
+          selected={value}
+          onChange={(selected) => changeFilter(key, selected)}
+          options={options[key].map(([option, size]) => ({
+            value: option,
+            label: format(option),
+            detail: formatBytes(size),
+            color: color?.(option),
+          }))}
+        />
+      );
+    }
+    const choices = options[key];
+    const known = choices.some(([option]) => option === value);
+    return (
+      <label key={key} className={filterStyles.filter}>
+        <span>{label}</span>
+        <select value={value} onChange={(event) => changeFilter(key, event.target.value)}>
+          <option value="">{allLabel}</option>
+          {value && !known && <option value={value}>{format(value)} (0 B)</option>}
+          {choices.map(([option, size]) => (
+            <option key={option} value={option}>
+              {format(option)} ({formatBytes(size)})
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
   return (
     <>
-      <div className={styles.toolbar}>
-        <label className={styles.search}>
-          <span>Search</span>
-          <input
-            type="search"
-            value={filters.Query}
-            placeholder="Path, dataset, subject, modality…"
-            onChange={(event) => setFilters({ ...filters, Query: event.target.value })}
-          />
-        </label>
-        {FILTERS.map(({ key, label = key, multi, color, format = (option) => option }) => {
-          const value = filters[key];
-          if (multi) {
-            return (
-              <MultiSelect
-                key={key}
-                label={label}
-                selected={value}
-                onChange={(selected) => changeFilter(key, selected)}
-                options={options[key].map(([option, size]) => ({
-                  value: option,
-                  label: format(option),
-                  detail: formatBytes(size),
-                  color: color?.(option),
-                }))}
-              />
-            );
-          }
-          const choices = options[key];
-          const known = choices.some(([option]) => option === value);
-          return (
-            <label key={key} className={styles.filter}>
-              <span>{label}</span>
-              <select value={value} onChange={(event) => changeFilter(key, event.target.value)}>
-                <option value="">All</option>
-                {value && !known && <option value={value}>{format(value)} (0 B)</option>}
-                {choices.map(([option, size]) => (
-                  <option key={option} value={option}>
-                    {format(option)} ({formatBytes(size)})
+      <div className={`${filterStyles.toolbar} ${filterStyles.rows}`}>
+        {/* The filters of the Overview and Datasets pages, as there */}
+        <div className={filterStyles.row}>
+          {SHARED_DROPDOWNS.map(renderDropdown)}
+          <div className={filterStyles.filter}>
+            <span>Dates</span>
+            <Segmented
+              label="Dates"
+              value={filters.Dates === "uploaded" ? "uploaded" : ""}
+              onChange={(Dates) => setFilters({ ...filters, Dates })}
+              options={[
+                { value: "", label: "Produced" },
+                { value: "uploaded", label: "Uploaded" },
+              ]}
+            />
+          </div>
+          {[
+            ["From", "Earliest"],
+            ["To", "Latest"],
+          ].map(([key, allLabel]) => (
+            <label key={key} className={`${filterStyles.filter} ${filterStyles.month}`}>
+              <span>{key}</span>
+              <select value={filters[key]} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}>
+                <option value="">{allLabel}</option>
+                {monthOptions.map((month) => (
+                  <option key={month} value={month}>
+                    {month}
                   </option>
                 ))}
               </select>
             </label>
-          );
-        })}
-        {isFiltered && (
-          <button type="button" className={styles.clear} onClick={clearFilters}>
-            Clear filters
-          </button>
-        )}
+          ))}
+          {isFiltered && (
+            <button type="button" className={filterStyles.clear} onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+        {/* Filters of the files only */}
+        <div className={filterStyles.row}>
+          <label className={filterStyles.search}>
+            <span>Search</span>
+            <input
+              type="search"
+              value={filters.Query}
+              placeholder="Path, dataset, subject, modality…"
+              onChange={(event) => setFilters({ ...filters, Query: event.target.value })}
+            />
+          </label>
+          {FILE_DROPDOWNS.map(renderDropdown)}
+        </div>
       </div>
 
       <FileNotes files={filteredFiles} filters={deferredFilters} onShow={changeFilter} />

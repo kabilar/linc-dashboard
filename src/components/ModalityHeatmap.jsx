@@ -3,19 +3,17 @@ import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import { compareLabels, splitList } from "./data";
 import { compareModalities } from "./modalities";
+import { filesQuery } from "./overview";
 import styles from "./ModalityHeatmap.module.css";
 
 // Dataset-level files (e.g. participants.tsv) are not tied to a subject.
 const NOT_A_SUBJECT = "n/a";
 
-function filesUrl(modality, subject) {
-  const params = new URLSearchParams({ subject, modality });
-  return `/files?${params}`;
-}
-
 // Grid of modalities (rows) x subjects (columns) showing which subjects have
-// data for each modality. Each available cell links to the matching files.
-export default function ModalityHeatmap({ rows }) {
+// data for each modality. Each available cell links to the matching files,
+// within `linkFilters` (the page's filters).
+export default function ModalityHeatmap({ rows, linkFilters = {} }) {
+  const filesUrl = (modality, subject) => `/files?${filesQuery(linkFilters, { Modality: [modality] }, { subject })}`;
   const containerRef = useRef(null);
   const [active, setActive] = useState(null);
 

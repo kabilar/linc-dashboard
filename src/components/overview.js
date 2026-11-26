@@ -1,7 +1,7 @@
 // Data and filters shared by the home page and the Datasets page, which show
 // the same files from different angles.
 import { useDeferredValue, useMemo } from "react";
-import useUrlFilters from "./useUrlFilters";
+import useUrlFilters, { filtersToSearch } from "./useUrlFilters";
 import { MODALITIES, UNKNOWN_MODALITY, compareModalities } from "./modalities";
 import { datasetId, toNumber } from "./data";
 
@@ -22,6 +22,15 @@ export const NOT_SUBJECTS = new Set(["n/a", "Unknown"]);
 // A file's sample as subject/label, or "" if it has none
 export function sampleKey(file) {
   return file.Sample ? `${file.Subject}/${file.Sample}` : "";
+}
+
+// The query string of a link to the Files page that keeps these filters, e.g.
+// for the files behind a number or a chart mark: `changes` replace some of
+// them, and `extra` adds filters of the Files page, e.g. { subject: "MF284" }.
+export function filesQuery(filters, changes = {}, extra = {}) {
+  const params = new URLSearchParams(filtersToSearch(OVERVIEW_FILTERS, { ...filters, ...changes }));
+  for (const [param, value] of Object.entries(extra)) params.set(param, value);
+  return params.toString();
 }
 
 // The date the Dates filter goes by

@@ -5,6 +5,7 @@ import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } fr
 import { compareLabels, formatNumber } from "./data";
 import { dayValue, monthEndValue, shortMonth, useElementWidth } from "./charts";
 import SectionHeading from "./SectionHeading";
+import { filesQuery } from "./overview";
 import styles from "./Charts.module.css";
 
 // Values of the Subject column that are not subjects
@@ -27,9 +28,9 @@ const DAY = 24 * 60 * 60 * 1000;
  * basis: "Produced" | "Uploaded"
  * months: the months to show, "YYYY-MM"
  * includeUnknown: whether to show files of unknown modality
- * linkParams: extra query parameters for links to the Files page
+ * linkFilters: the page's filters, kept by links to the Files page
  */
-export default function SubjectTimeline({ files, basis, months, includeUnknown, linkParams = {} }) {
+export default function SubjectTimeline({ files, basis, months, includeUnknown, linkFilters = {} }) {
   const scrollRef = useRef(null);
   const containerWidth = useElementWidth(scrollRef);
   const [active, setActive] = useState(null);
@@ -87,8 +88,7 @@ export default function SubjectTimeline({ files, basis, months, includeUnknown, 
   const verb = basis.toLowerCase();
 
   function open(item) {
-    const params = new URLSearchParams({ ...linkParams, subject: item.subject, modality: item.modality });
-    history.push(`${filesPath}?${params}`);
+    history.push(`${filesPath}?${filesQuery(linkFilters, { Modality: [item.modality] }, { subject: item.subject })}`);
   }
 
   let plot = null;

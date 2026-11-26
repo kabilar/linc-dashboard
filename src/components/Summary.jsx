@@ -81,7 +81,6 @@ function Dashboard({ rows }) {
     () => summarizeModalities(filtered, scope).map((row) => ({ Modality: row.Modality, Subject: row.Subject })),
     [filtered, scope],
   );
-  const linkParams = deferred.Archive ? { archive: deferred.Archive } : {};
 
   return (
     <>
@@ -98,14 +97,14 @@ function Dashboard({ rows }) {
               Subjects with data for each modality. Select a cell to browse its files.
             </span>
           </div>
-          <ModalityHeatmap rows={heatmapRows} />
+          <ModalityHeatmap rows={heatmapRows} linkFilters={deferred} />
         </section>
         <SubjectTimeline
           files={filtered}
           basis={basis}
           months={months}
           includeUnknown={deferred.Modality.includes(UNKNOWN_MODALITY)}
-          linkParams={linkParams}
+          linkFilters={deferred}
         />
       </div>
     </>

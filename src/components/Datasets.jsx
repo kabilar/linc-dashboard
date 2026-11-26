@@ -15,7 +15,7 @@ import {
   datasetUrl,
   UPLOAD_RANGE_DESCRIPTION,
 } from "./data";
-import { INVALID_BIDS, sampleKey, useOverview } from "./overview";
+import { INVALID_BIDS, filesQuery, sampleKey, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
 
@@ -85,7 +85,7 @@ const DATASET_COLUMNS = [
     align: "right",
     render: (row) =>
       row["Invalid BIDS"] > 0 ? (
-        <Link to={`/files?${new URLSearchParams({ dataset: datasetId(row), bids: INVALID_BIDS })}`}>
+        <Link to={row.invalidBidsLink}>
           {formatNumber(row["Invalid BIDS"])}
         </Link>
       ) : (
@@ -141,8 +141,16 @@ function summarizeDatasets(files, names) {
 
 function DatasetTable({ rows, names }) {
   const overview = useOverview(rows);
-  const { isStale, filtered } = overview;
-  const datasetRows = useMemo(() => summarizeDatasets(filtered, names), [filtered, names]);
+  const { deferred, isStale, filtered } = overview;
+  // Links to the invalid files keep the filters, so that they show the files counted
+  const datasetRows = useMemo(
+    () =>
+      summarizeDatasets(filtered, names).map((row) => ({
+        ...row,
+        invalidBidsLink: `/files?${filesQuery(deferred, {}, { dataset: datasetId(row), bids: INVALID_BIDS })}`,
+      })),
+    [filtered, names, deferred],
+  );
 
   return (
     <>
