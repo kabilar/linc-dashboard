@@ -12,6 +12,8 @@
   --dashboard-note-background: #fdf8e6;
   --dashboard-note-border: #f0dfa8;
   --dashboard-note-text: #5b4500;
+  --dashboard-footer-text: #606770;
+  --dashboard-footer-border: #e3e5e8;
   --dashboard-badge-background: #fdf3d7;
   --dashboard-badge-text: #6b4e00;
   /* Arrow of the dashboard's dropdowns */
@@ -40,6 +42,8 @@
   --dashboard-note-background: #2b2618;
   --dashboard-note-border: #5c4d22;
   --dashboard-note-text: #f1dc9e;
+  --dashboard-footer-text: #8d949e;
+  --dashboard-footer-border: #2e2f33;
   --dashboard-badge-background: #3a3116;
   --dashboard-badge-text: #f1dc9e;
   --dashboard-chevron-color: #a9adb4;
@@ -119,10 +123,13 @@
   }
 }
 
-/* Footer: the GitHub link and the copyright on one row, aligned with the
-   page's cards, at every width */
+/* Footer: "Last updated" on the left and the GitHub link on the right, on
+   the page's background below a thin line, lined up with the navbar's logo
+   and its light/dark mode switch */
 .footer {
-  padding: 1rem 0;
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--dashboard-footer-border);
+  background-color: var(--ifm-background-color);
 }
 
 .footer > .container {
@@ -131,9 +138,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.25rem 1rem;
-  width: calc(95vw - 2 * var(--ifm-spacing-horizontal));
-  max-width: 100%;
-  padding: 0;
+  max-width: none;
+  padding: 0 var(--ifm-navbar-padding-horizontal);
 }
 
 .footer__links,
@@ -141,19 +147,19 @@
   margin: 0;
 }
 
+.footer__bottom {
+  order: -1;
+}
+
 .footer__link-item,
 .footer__copyright {
   font-size: 0.875rem;
-  color: var(--ifm-color-emphasis-700);
-}
-
-/* On narrow screens, wrap between "Last updated …" and "© …", not inside them */
-.footer__bottom {
-  text-align: left;
-}
-
-.footer__copyright span {
   white-space: nowrap;
+  color: var(--dashboard-footer-text);
+}
+
+.footer__link-item:hover {
+  color: var(--ifm-color-primary);
 }
 
 /* Page styling */
