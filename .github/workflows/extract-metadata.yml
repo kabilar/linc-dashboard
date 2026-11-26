@@ -28,9 +28,7 @@ jobs:
 
     - name: Run Python script
       env:
-        # API key for lincbrain.org
         LINC_API_KEY: ${{ secrets.LINC_API_KEY }}
-        # Optional API key for dandiarchive.org, needed for embargoed datasets
         DANDI_API_KEY: ${{ secrets.DANDI_API_KEY }}
       run: python extract_metadata.py
 
