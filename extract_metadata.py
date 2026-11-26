@@ -40,8 +40,8 @@ ARCHIVES = {
         'api_url': 'https://api.lincbrain.org/api',
         'token_env': 'LINC_API_KEY',
         'token_required': True,
-        # OpenBNB, Mouse LSM, and 000053 for now (too many assets)
-        'exclude': ['000048', '000004', '000053'],
+        # OpenBNB and Mouse LSM
+        'exclude': ['000048', '000004'],
     },
     'DANDI': {
         'api_url': 'https://api.dandiarchive.org/api',
@@ -59,6 +59,9 @@ ASSETS_CSV = './static/lincbrain_assets.csv'
 OME_ZARR = 'OME-Zarr'
 # Note for archives named .ome.zarr whose Zarr metadata has no OME-Zarr part
 MISSING_OME_METADATA = 'Missing OME-Zarr metadata: add multiscales to the root group'
+
+# GitHub rejects files over 100 MB
+MAX_CSV_BYTES = 95_000_000
 
 PAGE_SIZE = 1000
 # Concurrent requests
@@ -649,7 +652,12 @@ def summarize_unmapped(df, depth=UNMAPPED_FOLDER_DEPTH):
 
 
 def write_csvs(df, df_names, directory='./static', unmapped_path=UNMAPPED_CSV):
-    df.to_csv(f'{directory}/lincbrain_assets.csv', index=False)
+    path = f'{directory}/lincbrain_assets.csv'
+    df.to_csv(path, index=False)
+    size = os.path.getsize(path)
+    print(f'{path}: {len(df)} files, {size / 1e6:.1f} MB', flush=True)
+    if size > MAX_CSV_BYTES:
+        raise RuntimeError(f'{path} is {size / 1e6:.0f} MB, too large to commit to GitHub')
     summarize_datasets(df, df_names).to_csv(f'{directory}/lincbrain_datasets.csv', index=False)
     summarize_modalities(df).to_csv(f'{directory}/lincbrain_modalities.csv', index=False)
     summarize_unmapped(df).to_csv(unmapped_path, index=False)
