@@ -33,8 +33,12 @@ wins.
   pipeline folder`: derivatives in a `derivatives/<pipeline>/` folder that has
   no `dataset_description.json`.
 
-The last two are why derivatives cannot be validated as BIDS-Derivatives
-datasets.
+- `Not in a subject folder: move to sourcedata/sub-<label>/`: source data
+  outside a `sourcedata/sub-<label>/` folder.
+
+The two derivatives notes are why derivatives cannot be validated as
+BIDS-Derivatives datasets. Source data is not validated as BIDS: it holds the
+data before conversion, in any format.
 
 ## `samples.csv` (edited by hand)
 

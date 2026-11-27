@@ -65,6 +65,8 @@ MISSING_OME_METADATA = 'Missing OME-Zarr metadata: add multiscales to the root g
 # Notes for derivatives that cannot be validated as BIDS-Derivatives datasets
 NOT_IN_PIPELINE_FOLDER = 'Not in a pipeline folder: move to derivatives/<pipeline>/'
 MISSING_DERIVATIVES_DESCRIPTION = 'Missing derivatives description: add dataset_description.json to its pipeline folder'
+# Note for source data whose subject is not given by its folder
+NOT_IN_SUBJECT_FOLDER = 'Not in a subject folder: move to sourcedata/sub-<label>/'
 NOTE_SEPARATOR = '; '
 
 # GitHub rejects files over 100 MB
@@ -261,18 +263,24 @@ def add_note(row, note):
         row['Note'] = NOTE_SEPARATOR.join(notes + [note])
 
 
-def add_derivatives_notes(rows):
-    """Note a dataset's derivatives that are not in derivatives/<pipeline>/ with a dataset_description.json."""
+def add_folder_notes(rows):
+    """Note a dataset's derivatives that are not in derivatives/<pipeline>/ with a dataset_description.json,
+    and its source data that is not in sourcedata/sub-<label>/."""
     described = {row['Path'].split('/')[1] for row in rows
                  if re.fullmatch(r'derivatives/[^/]+/dataset_description\.json', row['Path'])}
     for row in rows:
         parts = row['Path'].split('/')
-        if parts[0] != 'derivatives' or len(parts) < 2:
+        if len(parts) < 2:
             continue
-        if parts[1].startswith('sub-'):
-            add_note(row, NOT_IN_PIPELINE_FOLDER)
-        elif len(parts) > 2 and parts[1] not in described:
-            add_note(row, MISSING_DERIVATIVES_DESCRIPTION)
+        if parts[0] == 'derivatives':
+            if parts[1].startswith('sub-'):
+                add_note(row, NOT_IN_PIPELINE_FOLDER)
+            elif len(parts) > 2 and parts[1] not in described:
+                add_note(row, MISSING_DERIVATIVES_DESCRIPTION)
+        elif parts[0] == 'sourcedata' and not (len(parts) > 2 and parts[1].startswith('sub-')):
+            # e.g. sourcedata/README is about the folder, not a subject
+            if len(parts) > 2 or parts[1].lower() not in DATASET_LEVEL_FILES:
+                add_note(row, NOT_IN_SUBJECT_FOLDER)
 
 
 def add_bids_status(rows, assets, metadatas, reader):
@@ -535,7 +543,7 @@ def extract_assets(archive, client, config, cache=None):
                 "_storage": storage_url(metadata),
             })
         add_bids_status(latest_assets[first_row:], assets, metadatas, reader)
-        add_derivatives_notes(latest_assets[first_row:])
+        add_folder_notes(latest_assets[first_row:])
 
     add_ome_zarr_versions(archive, reader, latest_assets, cache or {})
     for row in latest_assets:
