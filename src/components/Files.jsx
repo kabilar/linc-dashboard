@@ -313,8 +313,6 @@ function FilesTable({ rows, csvUrl }) {
         </div>
       </div>
 
-      <FileNotes files={filtered} filters={deferredFilters} onShow={(key, value) => changeFilters({ [key]: value })} />
-
       <div className={styles.status}>
         <span role="status">
           {isFiltered ? `${formatNumber(filtered.length)} of ${formatNumber(files.length)} files` : countOf(files.length, "file")} ·{" "}
@@ -329,41 +327,6 @@ function FilesTable({ rows, csvUrl }) {
         <DataTable columns={COLUMNS} rows={filtered} paginate emptyMessage="No files match these filters." />
       </div>
     </>
-  );
-}
-
-// Files that need attention: invalid BIDS, or with a note
-function FileNotes({ files, filters, onShow }) {
-  const { invalidBids, notes } = useMemo(() => {
-    let invalid = 0;
-    const counts = new Map();
-    for (const file of files) {
-      if (file.BIDS === INVALID_BIDS) invalid += 1;
-      for (const note of file.NoteList) {
-        if (note !== NONE) addTo(counts, note, 1);
-      }
-    }
-    return { invalidBids: invalid, notes: [...counts].sort(([a], [b]) => compareLabels(a, b)) };
-  }, [files]);
-
-  const lines = [
-    ...(invalidBids > 0 && filters.BIDS !== INVALID_BIDS
-      ? [{ key: "BIDS", value: INVALID_BIDS, count: invalidBids, text: "Not valid BIDS" }]
-      : []),
-    ...notes.filter(([note]) => filters.Note !== note).map(([note, count]) => ({ key: "Note", value: note, count, text: note })),
-  ];
-  if (lines.length === 0) return null;
-  return (
-    <div className={styles.notes} role="note">
-      {lines.map(({ key, value, count, text }) => (
-        <p key={`${key}:${value}`}>
-          <strong>{countOf(count, "file")}</strong> · {text}.{" "}
-          <button type="button" className={styles.noteAction} onClick={() => onShow(key, value)}>
-            Show {count === 1 ? "it" : "them"}
-          </button>
-        </p>
-      ))}
-    </div>
   );
 }
 
