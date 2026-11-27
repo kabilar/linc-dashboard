@@ -20,10 +20,10 @@ import { filesLink, sampleKey, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
 
-const listColumn = (key) => ({
+const listColumn = (key, limit) => ({
   key,
   label: key,
-  render: (row) => <ExpandableList items={row[key]} />,
+  render: (row) => <ExpandableList items={row[key]} limit={limit} />,
 });
 
 const INITIAL_SORT = { key: "Dataset", direction: "asc" };
@@ -58,7 +58,8 @@ const DATASET_COLUMNS = [
     align: "right",
     render: (row) => formatNumber(row.Samples),
   },
-  listColumn("Extension"),
+  // Always all of them
+  listColumn("Extension", Infinity),
   {
     key: "Last uploaded",
     label: "Uploaded",

@@ -597,18 +597,6 @@ def summarize_datasets(df, df_names):
                         "Extension", "First uploaded", "Last uploaded"]]
 
 
-def summarize_modalities(df):
-    """Every modality, including those without files."""
-    order = list(modalities.values()) + [UNKNOWN]
-    return (df.assign(Modality=pd.Categorical(df['Modality'], categories=order), _sample=sample_keys(df))
-              .groupby('Modality', observed=False)
-              .agg(**{"Size (GB)": ("Size (bytes)", gigabytes),
-                      "Subject": ("Subject", join_unique),
-                      "Samples": ("_sample", count_samples),
-                      "Extension": ("Extension", join_unique)})
-              .reset_index())
-
-
 def load_mappings(path=MAPPINGS_CSV):
     """Curated mappings, most specific folders first."""
     mappings = read_strings(path)
@@ -683,7 +671,6 @@ def write_csvs(df, df_names, directory='./static', unmapped_path=UNMAPPED_CSV):
     if size > MAX_CSV_BYTES:
         raise RuntimeError(f'{path} is {size / 1e6:.0f} MB, too large to commit to GitHub')
     summarize_datasets(df, df_names).to_csv(f'{directory}/lincbrain_datasets.csv', index=False)
-    summarize_modalities(df).to_csv(f'{directory}/lincbrain_modalities.csv', index=False)
     summarize_unmapped(df).to_csv(unmapped_path, index=False)
 
 

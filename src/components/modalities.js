@@ -1,13 +1,14 @@
 import { compareLabels } from "./data";
 
-// Fixed colors (see custom.css), validated for color-vision deficiencies
+// Alphabetical, with the colors (see custom.css) in their order, which is validated for
+// color-vision deficiencies between neighbors, e.g. in the stacked chart
 export const MODALITIES = [
-  { name: "PS-OCT", color: "var(--modality-1)" },
+  { name: "Blockface photo", color: "var(--modality-1)" },
   { name: "Dark-field microscopy", color: "var(--modality-2)" },
-  { name: "HiP-CT", color: "var(--modality-3)" },
-  { name: "Diffusion MRI", color: "var(--modality-4)" },
+  { name: "Diffusion MRI", color: "var(--modality-3)" },
+  { name: "HiP-CT", color: "var(--modality-4)" },
   { name: "Light-sheet microscopy", color: "var(--modality-5)" },
-  { name: "Blockface photo", color: "var(--modality-6)" },
+  { name: "PS-OCT", color: "var(--modality-6)" },
   { name: "Unknown", color: "var(--modality-unknown)" },
 ];
 
