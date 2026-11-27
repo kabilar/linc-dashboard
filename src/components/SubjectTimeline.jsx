@@ -19,6 +19,11 @@ const MIN_WIDTH = 640;
 const MIN_BAR_WIDTH = 8;
 const DAY = 24 * 60 * 60 * 1000;
 
+// A subject's series: the letters its label starts with, e.g. "mf" for MF282 and MF284
+function seriesOf(subject) {
+  return (subject.match(/^[A-Za-z]+/)?.[0] ?? subject).toLowerCase();
+}
+
 // When each subject's data was produced (or uploaded), by modality
 export default memo(function SubjectTimeline({ files, basis, months, linkFilters = {} }) {
   const scrollRef = useRef(null);
@@ -58,19 +63,27 @@ export default memo(function SubjectTimeline({ files, basis, months, linkFilters
       item.datasets.add(file.DatasetId);
       byModality.set(file.Modality, item);
     }
-    return [...bySubject]
-      .map(([subject, byModality]) => {
-        const items = [...byModality]
-          .map(([modality, item]) => ({ subject, modality, ...item }))
-          .sort((a, b) => compareModalities(a.modality, b.modality));
-        const datasets = [...new Set(items.flatMap((item) => [...item.datasets]))].sort(compareLabels);
-        const first = items.reduce((min, item) => (item.first < min ? item.first : min), items[0].first);
-        return { subject, items, datasets, first };
-      })
-      // Featured subjects first, then by first date
-      .sort((a, b) =>
-        compareSubjects(a.subject, b.subject, () => a.first.localeCompare(b.first) || compareLabels(a.subject, b.subject)),
-      );
+    const lanes = [...bySubject].map(([subject, byModality]) => {
+      const items = [...byModality]
+        .map(([modality, item]) => ({ subject, modality, ...item }))
+        .sort((a, b) => compareModalities(a.modality, b.modality));
+      const datasets = [...new Set(items.flatMap((item) => [...item.datasets]))].sort(compareLabels);
+      const first = items.reduce((min, item) => (item.first < min ? item.first : min), items[0].first);
+      return { subject, series: seriesOf(subject), items, datasets, first };
+    });
+    const seriesFirst = new Map();
+    for (const { series, first } of lanes) {
+      if (!seriesFirst.has(series) || first < seriesFirst.get(series)) seriesFirst.set(series, first);
+    }
+    // Featured subjects first; then each series by its first date, and its subjects by theirs
+    return lanes.sort((a, b) =>
+      compareSubjects(a.subject, b.subject, () =>
+        seriesFirst.get(a.series).localeCompare(seriesFirst.get(b.series)) ||
+        compareLabels(a.series, b.series) ||
+        a.first.localeCompare(b.first) ||
+        compareLabels(a.subject, b.subject),
+      ),
+    );
   }, [files, basis]);
 
   const legendNames = [...new Set(lanes.flatMap((lane) => lane.items.map((item) => item.modality)))].sort(compareModalities);
