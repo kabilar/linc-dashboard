@@ -23,7 +23,8 @@ jobs:
         cache: pip
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      # Exact versions, checked against their checksums
+      run: pip install --require-hashes -r requirements.txt
 
     - name: Run Python script
       env:
