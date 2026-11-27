@@ -5,6 +5,8 @@
   --dashboard-accent: rgb(120, 88, 188);
   --dashboard-accent-hover: rgb(94, 64, 160);
   --dashboard-empty-cell: #ececf1;
+  /* Infima's is transparent in light mode */
+  --dashboard-page-background: #fff;
   --dashboard-shadow: rgba(0, 0, 0, 0.12);
   --dashboard-note-background: #fdf8e6;
   --dashboard-note-border: #f0dfa8;
@@ -32,6 +34,7 @@
 
   --dashboard-accent-hover: rgb(150, 122, 222);
   --dashboard-empty-cell: #2c2d33;
+  --dashboard-page-background: var(--ifm-background-color);
   --dashboard-shadow: rgba(0, 0, 0, 0.5);
   --dashboard-note-background: #2b2618;
   --dashboard-note-border: #5c4d22;

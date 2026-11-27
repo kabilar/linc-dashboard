@@ -16,6 +16,15 @@
   font-size: 0.8125rem;
 }
 
+/* The modality names stay in view when the grid scrolls sideways */
+.corner,
+.rowHeader {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--dashboard-page-background);
+}
+
 .corner {
   min-width: 1rem;
 }
