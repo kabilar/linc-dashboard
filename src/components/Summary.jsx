@@ -6,7 +6,6 @@ import ActivityChart from "./ActivityChart";
 import SubjectTimeline from "./SubjectTimeline";
 import OverviewFilters from "./OverviewFilters";
 import { useScrollToHash } from "./SectionHeading";
-import { UNKNOWN_MODALITY } from "./modalities";
 import { monthRange } from "./charts";
 import { ASSETS_CSV, useCsv, formatBytes, formatNumber } from "./data";
 import { NOT_SUBJECTS, sampleKey, subjectsByModality, useOverview } from "./overview";
@@ -90,13 +89,7 @@ function Dashboard({ rows }) {
           description="Subjects with data for each modality. Select a cell to browse its files.">
           <ModalityHeatmap subjectsByModality={subjects} linkFilters={deferred} />
         </ChartCard>
-        <SubjectTimeline
-          files={filtered}
-          basis={basis}
-          months={months}
-          includeUnknown={deferred.Modality.includes(UNKNOWN_MODALITY)}
-          linkFilters={deferred}
-        />
+        <SubjectTimeline files={filtered} basis={basis} months={months} linkFilters={deferred} />
       </div>
     </>
   );

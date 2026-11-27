@@ -2,7 +2,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useHistory } from "@docusaurus/router";
 import { useBaseUrlUtils } from "@docusaurus/useBaseUrl";
 import ChartCard from "./ChartCard";
-import { ModalityLegend, UNKNOWN_MODALITY, compareModalities, modalityColor } from "./modalities";
+import { ModalityLegend, compareModalities, modalityColor } from "./modalities";
 import { compareLabels, countOf } from "./data";
 import { dayValue, monthEndValue, shortMonth, useElementWidth } from "./charts";
 import { keepInside } from "./popover";
@@ -20,7 +20,7 @@ const MIN_BAR_WIDTH = 8;
 const DAY = 24 * 60 * 60 * 1000;
 
 // When each subject's data was produced (or uploaded), by modality
-export default memo(function SubjectTimeline({ files, basis, months, includeUnknown, linkFilters = {} }) {
+export default memo(function SubjectTimeline({ files, basis, months, linkFilters = {} }) {
   const scrollRef = useRef(null);
   const containerWidth = useElementWidth(scrollRef);
   const [active, setActive] = useState(null);
@@ -42,7 +42,6 @@ export default memo(function SubjectTimeline({ files, basis, months, includeUnkn
     for (const file of files) {
       const date = file[basis];
       if (!date || NOT_SUBJECTS.has(file.Subject)) continue;
-      if (file.Modality === UNKNOWN_MODALITY && !includeUnknown) continue;
       if (!bySubject.has(file.Subject)) bySubject.set(file.Subject, new Map());
       const byModality = bySubject.get(file.Subject);
       const item = byModality.get(file.Modality) ?? {
@@ -72,7 +71,7 @@ export default memo(function SubjectTimeline({ files, basis, months, includeUnkn
       .sort((a, b) =>
         compareSubjects(a.subject, b.subject, () => a.first.localeCompare(b.first) || compareLabels(a.subject, b.subject)),
       );
-  }, [files, basis, includeUnknown]);
+  }, [files, basis]);
 
   const legendNames = [...new Set(lanes.flatMap((lane) => lane.items.map((item) => item.modality)))].sort(compareModalities);
   const verb = basis.toLowerCase();
@@ -235,9 +234,6 @@ export default memo(function SubjectTimeline({ files, basis, months, includeUnkn
         </div>
         {tooltip}
       </div>
-      {!includeUnknown && (
-        <p className={styles.note}>Files of unknown modality are left out unless “Unknown” is selected in the Modality filter.</p>
-      )}
     </ChartCard>
   );
 });
