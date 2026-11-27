@@ -1,8 +1,0 @@
-Modality,Size (GB),Subject,Samples,Extension
-PS-OCT,238096.73,"mouse,MF283,MF284,mouse2026,test-before-m2,misctissue,I65,human10um",383,"OME-Zarr,nii.gz,json,OME-Zarr v0.5"
-Dark-field microscopy,3487.77,"MR256,MF162,MN115,MR243,MF275,MF278,MF191,MN083,MR252,EXC025,I58,Ha1,M3,Unknown,Hb1",128,"tif,json,nii.gz,jp2,OME-Zarr,zarr,pdf"
-HiP-CT,16345.49,"I58,S45,I74,Hb1,Hb2,AG9AY5E,AG9AY5F",12,"lta,nii.gz,trk,zarr,OME-Zarr,json,OME-Zarr v0.5"
-Diffusion MRI,289.28,"MR243,MR256,MF275,MF278,I58,EXC025,EXC004,S45,Ha1,Hb1,M1,M2,M3,M4",11,"bvec,bval,nii.gz,zarr,mat,bvals,bvecs,lta,fib.gz,trk,json"
-Light-sheet microscopy,487174.7,"mouse,mouse2025,MF282,MF284,MN131,PH1,PM1",154,"OME-Zarr,OME-Zarr v0.4,yaml,nii.gz"
-Blockface photo,0.26,"MR256,Unknown",166,"tif,json,nii.gz,zarr"
-Unknown,1328945.22,"n/a,MR256,MN115,MR243,MF275,MF278,MF191,MN083,MR252,I58,EXC004,EXC025,I74,I35,S45,JL1,Unknown,macaque,human,test1,test,MF168,AG9-AY5d,MF283,Ha1,Hb1,Hb2,M1,M2,M3,M4,MF282,MF284,AG9AY5E,AG9AY5F,MN131,mouse2026,testscan,HRSCAPEBeads,mouse2025,test-before-m2,I65,I80",436,"json,tsv,ASC,JPG,OME-Zarr,nii.gz,white,pial,yml,png,timg,log,,trk,zarr,lta,tiff,mat,fib.gz,trk.gz,scene,nii,dat,sifx,ini,bin,jpg,avi,gif,tif,zip,gii,txt,OME-Zarr v0.5,btable,md,OME-Zarr v0.4,yaml,OME-Zarr v0.6,bvecs,prd,csv"
