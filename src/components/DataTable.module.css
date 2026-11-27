@@ -107,22 +107,6 @@
   overflow-wrap: break-word;
 }
 
-.listToggle {
-  margin-left: 0.5rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--ifm-color-primary);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.listToggle:hover {
-  text-decoration: underline;
-}
-
 .pagination {
   display: flex;
   flex-wrap: wrap;

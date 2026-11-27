@@ -11,28 +11,9 @@ export function Missing() {
   return <span className={styles.muted}>—</span>;
 }
 
-// Collapses long lists
-export function ExpandableList({ items, limit = 12 }) {
-  const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return <Missing />;
-
-  const visible = expanded ? items : items.slice(0, limit);
-  const hidden = items.length - visible.length;
-
-  return (
-    <span className={styles.list}>
-      {visible.join(", ")}
-      {items.length > limit && (
-        <button
-          type="button"
-          className={styles.listToggle}
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Show less" : `+${formatNumber(hidden)} more`}
-        </button>
-      )}
-    </span>
-  );
+// All of a list's items, e.g. a dataset's subjects
+export function List({ items }) {
+  return items.length ? <span className={styles.list}>{items.join(", ")}</span> : <Missing />;
 }
 
 function useMaxWidth(width) {

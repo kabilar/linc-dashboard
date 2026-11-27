@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import Link from "@docusaurus/Link";
-import DataTable, { ExpandableList, Missing } from "./DataTable";
+import DataTable, { List, Missing } from "./DataTable";
 import LoadingState from "./LoadingState";
 import OverviewFilters from "./OverviewFilters";
 import { compareModalities } from "./modalities";
@@ -20,10 +20,10 @@ import { filesLink, sampleKey, useOverview } from "./overview";
 import styles from "./Datasets.module.css";
 import filterStyles from "./Filters.module.css";
 
-const listColumn = (key, limit) => ({
+const listColumn = (key) => ({
   key,
   label: key,
-  render: (row) => <ExpandableList items={row[key]} limit={limit} />,
+  render: (row) => <List items={row[key]} />,
 });
 
 const INITIAL_SORT = { key: "Dataset", direction: "asc" };
@@ -58,8 +58,7 @@ const DATASET_COLUMNS = [
     align: "right",
     render: (row) => formatNumber(row.Samples),
   },
-  // Always all of them
-  listColumn("Extension", Infinity),
+  listColumn("Extension"),
   {
     key: "Last uploaded",
     label: "Uploaded",
